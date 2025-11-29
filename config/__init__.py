@@ -1,0 +1,1 @@
+# Gestión de configuración y secretos para MAPAS_TA_DEV_1

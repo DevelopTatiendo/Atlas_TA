@@ -1,0 +1,966 @@
+/* Editor de cuadrantes - Estilos compactos */
+
+/* Contenedor fijo y compacto */
+.toolbar { 
+    position: sticky; 
+    top: 0; 
+    z-index: 500; 
+    background: #fff; 
+    padding: 8px 12px; 
+    box-shadow: 0 1px 4px rgba(0,0,0,.06); 
+}
+
+.toolbar-primary { 
+    display: flex; 
+    align-items: center; 
+    gap: 10px; 
+    flex-wrap: nowrap; 
+}
+
+.toolbar-secondary { 
+    display: flex; 
+    align-items: center; 
+    gap: 10px; 
+    margin-top: 8px; 
+}
+
+/* Botones más compactos pero con texto */
+.btn { 
+    padding: 8px 14px; 
+    font-size: 14px; 
+    line-height: 1; 
+}
+
+/* Paleta en línea, con scroll horizontal si no cabe */
+.palette.scroller { 
+    flex: 1 1 auto; 
+    overflow-x: auto; 
+    white-space: nowrap; 
+    padding: 2px 0; 
+}
+
+.palette.scroller::-webkit-scrollbar { 
+    height: 6px; 
+}
+
+.palette.scroller::-webkit-scrollbar-thumb { 
+    background:#e5e7eb; 
+    border-radius:4px; 
+}
+
+/* Eliminar cualquier margen alto sobrante en el contenedor principal del mapa si existía */
+.leaflet-container { 
+    margin-top: 0 !important; 
+}
+
+.opacity-control input[type="range"] {
+    width: 100px;
+}
+
+.coverage-indicator {
+    font-weight: 600;
+    color: #333;
+}
+
+.separator {
+    width: 1px;
+    height: 30px;
+    background: #ddd;
+    margin: 0 10px;
+}
+
+/* Estados de botones */
+.btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+    background: #ccc !important;
+}
+
+.btn.active-mode {
+    background: linear-gradient(135deg, #ff6b6b 0%, #ee5a52 100%) !important;
+    box-shadow: 0 0 10px rgba(255, 107, 107, 0.5) !important;
+}
+
+/* Modal para configuración de cuadrante */
+.cuadrante-modal {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.7);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 10000;
+}
+
+.cuadrante-modal-content {
+    background: white;
+    border-radius: 12px;
+    padding: 25px;
+    min-width: 400px;
+    max-width: 500px;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+}
+
+.cuadrante-modal h3 {
+    margin: 0 0 20px 0;
+    color: #333;
+    font-size: 20px;
+    font-weight: 600;
+    text-align: center;
+}
+
+.form-group {
+    margin-bottom: 15px;
+}
+
+.form-group label {
+    display: block;
+    margin-bottom: 5px;
+    font-weight: 500;
+    color: #555;
+}
+
+.form-group input,
+.form-group select {
+    width: 100%;
+    padding: 12px;
+    border: 2px solid #e0e0e0;
+    border-radius: 8px;
+    font-size: 14px;
+    transition: border-color 0.3s ease;
+}
+
+.form-group input:focus,
+.form-group select:focus {
+    outline: none;
+    border-color: #667eea;
+    box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+}
+
+.codigo-preview {
+    background: #f8f9fa;
+    padding: 10px;
+    border-radius: 6px;
+    font-family: 'Courier New', monospace;
+    font-weight: 600;
+    color: #333;
+    margin-top: 5px;
+}
+
+.modal-buttons {
+    display: flex;
+    gap: 10px;
+    justify-content: flex-end;
+    margin-top: 25px;
+}
+
+.modal-buttons .btn {
+    padding: 12px 24px;
+    font-size: 14px;
+    font-weight: 600;
+}
+
+/* Indicadores de validación */
+.validation-overlay {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.8);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 5000;
+}
+
+.validation-panel {
+    background: white;
+    border-radius: 12px;
+    padding: 25px;
+    max-width: 600px;
+    max-height: 80vh;
+    overflow-y: auto;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+}
+
+.validation-panel h3 {
+    margin: 0 0 20px 0;
+    color: #d63031;
+    font-size: 18px;
+    font-weight: 600;
+}
+
+.validation-error {
+    background: #ffe6e6;
+    border: 1px solid #ff9999;
+    border-radius: 6px;
+    padding: 12px;
+    margin-bottom: 10px;
+}
+
+.validation-error.warning {
+    background: #fff3cd;
+    border-color: #ffeaa7;
+}
+
+.validation-error.critical {
+    background: #ffe6e6;
+    border: 1px solid #ff9999;
+    color: #d63031;
+}
+
+.validation-warning {
+    background: #fff3cd;
+    border: 1px solid #ffeaa7;
+    border-radius: 6px;
+    padding: 12px;
+    margin-bottom: 10px;
+    color: #856404;
+}
+
+.validation-actions {
+    display: flex;
+    gap: 10px;
+    justify-content: flex-end;
+    margin-top: 20px;
+}
+
+/* Estilos para jerarquía de importación */
+.hierarchy-summary {
+    display: flex;
+    gap: 15px;
+    background: #f8f9fa;
+    padding: 10px;
+    border-radius: 6px;
+    font-size: 13px;
+    margin-top: 5px;
+}
+
+.hierarchy-summary > div {
+    padding: 5px 10px;
+    background: white;
+    border-radius: 4px;
+    border: 1px solid #e0e0e0;
+}
+
+.hijos-preview-list {
+    max-height: 150px;
+    overflow-y: auto;
+    background: #f8f9fa;
+    border-radius: 6px;
+    padding: 10px;
+    margin-top: 5px;
+}
+
+.hijo-preview-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 5px 10px;
+    background: white;
+    border: 1px solid #e0e0e0;
+    border-radius: 4px;
+    margin-bottom: 5px;
+    font-size: 13px;
+}
+
+.hijo-preview-item:last-child {
+    margin-bottom: 0;
+}
+
+.hijo-preview-item .codigo {
+    font-family: 'Courier New', monospace;
+    font-weight: 600;
+    color: #333;
+}
+
+.hijo-preview-item .orden {
+    color: #666;
+    font-size: 12px;
+}
+
+.form-control {
+    width: 100%;
+    padding: 10px;
+    border: 2px solid #e0e0e0;
+    border-radius: 6px;
+    font-size: 14px;
+    background: white;
+}
+
+.form-control:focus {
+    outline: none;
+    border-color: #667eea;
+    box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+}
+
+
+
+/* Notificaciones de estado */
+.notification-success {
+    background: linear-gradient(135deg, #00b894 0%, #00cec9 100%);
+}
+
+.notification-import {
+    background: linear-gradient(135deg, #6c5ce7 0%, #a29bfe 100%);
+}
+
+.notification-error {
+    background: linear-gradient(135deg, #d63031 0%, #e17055 100%);
+}
+
+
+
+/* Responsivo */
+@media (max-width: 768px) {
+    .hierarchy-controls {
+        flex-direction: column;
+        align-items: stretch;
+    }
+    
+    .info-controls {
+        flex-direction: column;
+        align-items: stretch;
+    }
+    
+    .cuadrante-modal-content {
+        margin: 20px;
+        min-width: auto;
+    }
+    
+    .modal-buttons {
+        flex-direction: column;
+    }
+    
+    .hierarchy-summary {
+        flex-direction: column;
+        gap: 5px;
+    }
+    
+    .hijo-preview-item {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 5px;
+    }
+}
+
+/* Paleta de colores y controles */
+.palette { display:flex; flex-wrap:wrap; gap:6px; }
+.palette .swatch {
+  width:22px; height:22px; border-radius:4px; cursor:pointer; border:2px solid #fff; box-shadow:0 0 0 1px rgba(0,0,0,.15);
+}
+.palette .swatch.active { outline:2px solid #333; }
+
+.switch { position:relative; display:inline-block; width:44px; height:24px; }
+.switch input { display:none; }
+.slider { position:absolute; cursor:pointer; top:0; left:0; right:0; bottom:0; background:#ccc; transition:.2s; border-radius:24px; }
+.slider:before { position:absolute; content:""; height:18px; width:18px; left:3px; bottom:3px; background:white; transition:.2s; border-radius:50%; }
+input:checked + .slider { background:#4CAF50; }
+input:checked + .slider:before { transform:translateX(20px); }
+.switch-label { margin-left:6px; font-size:14px; }
+
+/* Ocultar controles de borde en el StyleEditor (best-effort; las clases varían por versión) */
+.leaflet-styleeditor .leaflet-styleeditor-subelement-weight,
+.leaflet-styleeditor .leaflet-styleeditor-subelement-stroke,
+.leaflet-styleeditor .leaflet-styleeditor-subelement-dasharray {
+  display: none !important;
+}
+
+/* Estilos para prompt personalizado (si se implementa más adelante) */
+.codigo-modal {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 10000;
+}
+
+.codigo-modal-content {
+  background: white;
+  border-radius: 8px;
+  padding: 20px;
+  min-width: 300px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+}
+
+.codigo-modal h3 {
+  margin: 0 0 15px 0;
+  color: #333;
+  font-size: 18px;
+}
+
+.codigo-modal input {
+  width: 100%;
+  padding: 10px;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  font-size: 14px;
+  margin-bottom: 15px;
+}
+
+.codigo-modal-buttons {
+  display: flex;
+  gap: 10px;
+  justify-content: flex-end;
+}
+
+.codigo-modal button {
+  padding: 8px 16px;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 14px;
+}
+
+.codigo-modal .btn-primary {
+  background: #667eea;
+  color: white;
+}
+
+.codigo-modal .btn-secondary {
+  background: #6c757d;
+  color: white;
+}
+
+/* === MODAL PARA CÓDIGO DE SUBCUADRANTES === */
+
+.modal {
+  position: fixed;
+  z-index: 10000;
+  left: 0;
+  top: 0;
+  width: 100%;
+  height: 100%;
+  background-color: rgba(0, 0, 0, 0.5);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.modal-content {
+  background-color: white;
+  border-radius: 8px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+  max-width: 500px;
+  width: 90%;
+  max-height: 80vh;
+  overflow-y: auto;
+}
+
+.modal-header {
+  padding: 20px;
+  border-bottom: 1px solid #e0e0e0;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.modal-header h3 {
+  margin: 0;
+  color: #333;
+}
+
+.modal-close {
+  background: none;
+  border: none;
+  font-size: 24px;
+  cursor: pointer;
+  color: #666;
+  padding: 0;
+  width: 30px;
+  height: 30px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.modal-close:hover {
+  color: #333;
+  background-color: #f0f0f0;
+  border-radius: 50%;
+}
+
+.modal-body {
+  padding: 20px;
+}
+
+.modal-footer {
+  padding: 15px 20px;
+  border-top: 1px solid #e0e0e0;
+  display: flex;
+  gap: 10px;
+  justify-content: flex-end;
+}
+
+.form-group {
+  margin-bottom: 15px;
+}
+
+.form-group label {
+  display: block;
+  margin-bottom: 5px;
+  font-weight: 500;
+  color: #333;
+}
+
+.form-control {
+  width: 100%;
+  padding: 10px;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  font-size: 14px;
+}
+
+.form-control:focus {
+  outline: none;
+  border-color: #667eea;
+  box-shadow: 0 0 5px rgba(102, 126, 234, 0.3);
+}
+
+.form-text {
+  display: block;
+  margin-top: 5px;
+  font-size: 12px;
+  color: #666;
+}
+
+.existing-children {
+  margin-top: 15px;
+  padding-top: 15px;
+  border-top: 1px solid #eee;
+}
+
+.children-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.child-tag {
+  background: #f8f9fa;
+  border: 1px solid #dee2e6;
+  border-radius: 4px;
+  padding: 4px 8px;
+  font-size: 12px;
+  color: #495057;
+}
+
+/* === MODAL SIMPLIFICADO PARA CÓDIGO DE HIJO === */
+
+.hidden {
+  display: none !important;
+}
+
+#modal-codigo-hijo .modal-content {
+  max-width: 400px;
+  padding: 20px;
+}
+
+#modal-codigo-hijo h3 {
+  margin: 0 0 20px 0;
+  color: #333;
+  font-size: 18px;
+}
+
+#modal-codigo-hijo .row {
+  margin-bottom: 15px;
+}
+
+#modal-codigo-hijo label {
+  display: block;
+  margin-bottom: 5px;
+  font-weight: 500;
+  color: #555;
+}
+
+#modal-codigo-hijo input {
+  width: 100%;
+  padding: 8px 12px;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  font-size: 14px;
+}
+
+#modal-codigo-hijo input:readonly {
+  background-color: #f8f9fa;
+  color: #6c757d;
+}
+
+#modal-codigo-hijo input:focus {
+  outline: none;
+  border-color: #667eea;
+  box-shadow: 0 0 5px rgba(102, 126, 234, 0.3);
+}
+
+#modal-codigo-hijo .actions {
+  display: flex;
+  gap: 10px;
+  justify-content: flex-end;
+  margin-top: 20px;
+  padding-top: 15px;
+  border-top: 1px solid #eee;
+}
+
+#modal-codigo-hijo .btn-primary {
+  background: #667eea;
+  color: white;
+  border: none;
+  padding: 8px 16px;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 14px;
+}
+
+#modal-codigo-hijo .btn-primary:hover {
+  background: #5a6fd8;
+}
+
+#modal-codigo-hijo .btn-secondary {
+  background: #6c757d;
+  color: white;
+  border: none;
+  padding: 8px 16px;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 14px;
+}
+
+#modal-codigo-hijo .btn-secondary:hover {
+  background: #545b62;
+}
+
+#modal-codigo-hijo .form-text {
+  font-size: 12px;
+  color: #6c757d;
+  margin-top: 4px;
+  font-style: italic;
+}
+
+/* === ProjectRegistry System UI Styles === */
+
+/* Import Mode Selector */
+.import-mode-info {
+  background: #f8f9fa;
+  padding: 15px;
+  border-radius: 8px;
+  margin-bottom: 20px;
+  border-left: 4px solid #00b894;
+}
+
+.data-summary {
+  font-size: 14px;
+  line-height: 1.6;
+}
+
+.import-modes {
+  display: flex;
+  flex-direction: column;
+  gap: 15px;
+  margin-bottom: 25px;
+}
+
+.import-mode-option {
+  display: flex;
+  align-items: flex-start;
+  gap: 15px;
+  padding: 20px;
+  border: 2px solid #e9ecef;
+  border-radius: 10px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  background: #fff;
+}
+
+.import-mode-option:hover {
+  border-color: #667eea;
+  background: #f8f9fc;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+}
+
+.mode-icon {
+  font-size: 32px;
+  line-height: 1;
+  margin-top: 5px;
+}
+
+.mode-content h4 {
+  margin: 0 0 8px 0;
+  color: #2d3436;
+  font-size: 16px;
+  font-weight: 600;
+}
+
+.mode-content p {
+  margin: 0 0 10px 0;
+  color: #636e72;
+  font-size: 14px;
+  line-height: 1.4;
+}
+
+.mode-details {
+  font-size: 12px;
+  color: #00b894;
+  line-height: 1.3;
+}
+
+/* Route Editor Selector */
+.route-summary {
+  background: #fff3cd;
+  padding: 12px;
+  border-radius: 6px;
+  border-left: 4px solid #ffd93d;
+  margin-bottom: 15px;
+}
+
+.route-summary div {
+  margin: 2px 0;
+  font-size: 14px;
+  color: #856404;
+}
+
+.route-preview-details {
+  background: #e3f2fd;
+  padding: 15px;
+  border-radius: 8px;
+  border-left: 4px solid #2196f3;
+}
+
+.route-edit-preview {
+  font-size: 14px;
+}
+
+.preview-item {
+  margin: 8px 0;
+  padding: 4px 0;
+}
+
+.preview-note {
+  margin-top: 12px;
+  padding-top: 10px;
+  border-top: 1px solid #bbdefb;
+  font-style: italic;
+  color: #1976d2;
+}
+
+/* Enhanced Hierarchy Selector */
+.hierarchy-summary {
+  display: flex;
+  gap: 20px;
+  background: #f0f4f8;
+  padding: 12px;
+  border-radius: 6px;
+  margin-bottom: 15px;
+}
+
+.hierarchy-summary div {
+  font-size: 14px;
+  color: #2d3748;
+  font-weight: 500;
+}
+
+.hijos-preview-list {
+  max-height: 200px;
+  overflow-y: auto;
+  background: #f8f9fa;
+  border-radius: 6px;
+  padding: 10px;
+}
+
+.hijo-preview-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 8px 10px;
+  margin: 2px 0;
+  background: white;
+  border-radius: 4px;
+  font-size: 13px;
+}
+
+.hijo-preview-item.no-children {
+  color: #6c757d;
+  font-style: italic;
+  justify-content: center;
+}
+
+.codigo {
+  font-weight: 600;
+  color: #495057;
+}
+
+.orden {
+  font-size: 11px;
+  color: #6c757d;
+}
+
+/* Success Notifications - Enhanced */
+.import-success-notification {
+  position: fixed;
+  top: 20px;
+  right: 20px;
+  max-width: 350px;
+  padding: 16px 20px;
+  border-radius: 10px;
+  box-shadow: 0 6px 20px rgba(0,0,0,0.15);
+  z-index: 10000;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  font-size: 14px;
+  line-height: 1.4;
+  animation: slideInRight 0.3s ease-out;
+}
+
+@keyframes slideInRight {
+  from {
+    transform: translateX(100%);
+    opacity: 0;
+  }
+  to {
+    transform: translateX(0);
+    opacity: 1;
+  }
+}
+
+/* Modal enhancements for dual import */
+.cuadrante-modal-content h3 {
+  color: #2d3436;
+  margin-bottom: 20px;
+  font-size: 18px;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.modal-buttons {
+  display: flex;
+  gap: 10px;
+  justify-content: flex-end;
+  margin-top: 25px;
+  padding-top: 20px;
+  border-top: 1px solid #e9ecef;
+}
+
+.btn-info {
+  background: #17a2b8;
+  color: white;
+  border: none;
+  padding: 10px 16px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 500;
+  transition: background 0.2s ease;
+}
+
+.btn-info:hover {
+  background: #138496;
+}
+
+/* Isolation mode cursor enhancement */
+.map-isolated {
+  cursor: crosshair !important;
+}
+
+.map-isolated .leaflet-interactive {
+  cursor: crosshair !important;
+}
+
+.mode-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 14px;
+  margin-right: 12px;
+}
+
+.mode-option {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 10px;
+  border: 1px solid #e3e6ef;
+  border-radius: 8px;
+  background: #fff;
+  cursor: pointer;
+  user-select: none;
+}
+.mode-option input { transform: translateY(1px); }
+
+/* ============================================================
+   Marco común y compacto para TODOS los modales del editor
+   ============================================================ */
+.editor-modal {
+  position: fixed;
+  inset: 0;
+  z-index: 10040;          /* por encima del mapa y toolbars */
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;           /* margen interior para respiración en 100% vw */
+  background: rgba(0,0,0,0.25);
+}
+
+.editor-modal .modal-dialog {
+  width: 100%;
+  max-width: 560px;        /* igualar "Crear cuadrante" */
+  max-height: 88vh;        /* CLAVE: no exceder viewport */
+}
+
+.editor-modal .modal-content {
+  display: flex;
+  flex-direction: column;
+  max-height: 88vh;        /* hereda el tope */
+  background: #fff;
+  border-radius: 12px;
+  box-shadow: 0 12px 32px rgba(0,0,0,0.25);
+  overflow: hidden;        /* bordes redondeados + recorte */
+}
+
+.editor-modal .modal-header,
+.editor-modal .modal-footer {
+  flex: 0 0 auto;
+  padding: 14px 18px;
+  background: #fff;
+}
+
+.editor-modal .modal-header {
+  border-bottom: 1px solid #e9edf3;
+}
+
+.editor-modal .modal-footer {
+  border-top: 1px solid #e9edf3;
+  display: flex;
+  gap: 10px;
+  justify-content: flex-end;
+}
+
+.editor-modal .modal-body {
+  flex: 1 1 auto;
+  min-height: 0;           /* CLAVE para que overflow funcione */
+  overflow: auto;          /* scroll interno del cuerpo */
+  padding: 16px 18px;
+}
+
+/* Inputs y textos largos no deben romper layout */
+.editor-modal .form-group input[type="text"],
+.editor-modal .form-group input[type="number"] {
+  width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
+}
+
+@media (max-width: 640px) {
+  .editor-modal .modal-dialog {
+    max-width: 100%;
+  }
+}

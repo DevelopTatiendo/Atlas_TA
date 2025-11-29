@@ -1,0 +1,325 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Editor de Cuadrantes - MAPAS TA</title>
+    
+    <!-- Leaflet (local) -->
+    <link rel="stylesheet" href="/static/vendor/leaflet/1.9.4/leaflet.css" />
+    
+    <!-- Leaflet.Draw (local) -->
+    <link rel="stylesheet" href="/static/vendor/leaflet-draw/1.0.4/leaflet.draw.css" />
+    
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #f5f5f5;
+        }
+        
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 15px 20px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        
+        .header h1 {
+            font-size: 24px;
+            font-weight: 600;
+            margin-bottom: 5px;
+        }
+        
+        .header p {
+            font-size: 14px;
+            opacity: 0.9;
+        }
+        
+        .controls {
+            background: white;
+            padding: 15px 20px;
+            border-bottom: 1px solid #e0e0e0;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.05);
+        }
+        
+        .controls-group {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            flex-wrap: wrap;
+        }
+        
+        .btn {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 500;
+            transition: all 0.3s ease;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+        }
+        
+        .btn-primary {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+        
+        .btn-primary:hover {
+            background: linear-gradient(135deg, #5a6fd8 0%, #6a4190 100%);
+            transform: translateY(-1px);
+            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+        }
+        
+        .btn-success {
+            background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%);
+            color: white;
+        }
+        
+        .btn-success:hover {
+            background: linear-gradient(135deg, #0f8679 0%, #32d470 100%);
+            transform: translateY(-1px);
+            box-shadow: 0 4px 12px rgba(17, 153, 142, 0.4);
+        }
+        
+        .btn-secondary {
+            background: linear-gradient(135deg, #74b9ff 0%, #0984e3 100%);
+            color: white;
+        }
+        
+        .btn-secondary:hover {
+            background: linear-gradient(135deg, #6c5ce7 0%, #a29bfe 100%);
+            transform: translateY(-1px);
+            box-shadow: 0 4px 12px rgba(116, 185, 255, 0.4);
+        }
+        
+        .btn-danger {
+            background: linear-gradient(135deg, #e17055 0%, #d63031 100%);
+            color: white;
+        }
+        
+        .btn-danger:hover {
+            background: linear-gradient(135deg, #d63031 0%, #a4161a 100%);
+            transform: translateY(-1px);
+            box-shadow: 0 4px 12px rgba(225, 112, 85, 0.4);
+        }
+        
+        .btn-active {
+            background: linear-gradient(135deg, #00b894 0%, #00cec9 100%) !important;
+        }
+        
+        .btn:active {
+            transform: translateY(0);
+        }
+        
+        .icon {
+            width: 16px;
+            height: 16px;
+        }
+        
+        .map-container {
+            position: relative;
+            height: calc(100vh - 140px);
+            background: white;
+        }
+        
+        #map {
+            width: 100%;
+            height: 100%;
+            border: none;
+        }
+        
+        /* Responsive */
+        @media (max-width: 768px) {
+            .header {
+                padding: 12px 15px;
+            }
+            
+            .header h1 {
+                font-size: 20px;
+            }
+            
+            .controls {
+                padding: 12px 15px;
+            }
+            
+            .controls-group {
+                flex-direction: column;
+                align-items: stretch;
+            }
+            
+            .btn {
+                justify-content: center;
+            }
+            
+            .map-container {
+                height: calc(100vh - 160px);
+            }
+        }
+        
+        /* Leaflet custom styles */
+        .leaflet-control-draw {
+            box-shadow: 0 2px 8px rgba(0,0,0,0.15) !important;
+        }
+        
+        .leaflet-draw-toolbar a {
+            background-color: white !important;
+            border: 1px solid #ccc !important;
+        }
+        
+        .leaflet-draw-toolbar a:hover {
+            background-color: #f8f9fa !important;
+        }
+    </style>
+</head>
+<body>
+    <!-- Header -->
+    <header class="header">
+        <h1>📍 Editor de Cuadrantes</h1>
+        <p>Herramienta para crear y editar áreas geográficas con estilos personalizados</p>
+    </header>
+    
+    <!-- Compact Toolbar -->
+    <div id="toolbar" class="toolbar">
+        <div id="toolbar-primary" class="toolbar-primary">
+            <div id="sistema-toggle" class="mode-toggle">
+                <label class="mode-option">
+                    <input type="radio" name="sistema" value="RUTA" checked>
+                    Rutas
+                </label>
+                <label class="mode-option">
+                    <input type="radio" name="sistema" value="PAP">
+                    PAP
+                </label>
+            </div>
+            <button id="btn-crear-padre" class="btn btn-primary">➕ Crear cuadrante (padre)</button>
+            <button id="btn-crear-hijo" class="btn btn-primary" disabled>➕ Crear subcuadrantes (hijos)</button>
+            <button id="btn-editar-padre" class="btn btn-outline" disabled>✏️ Editar padre</button>
+            <button id="btn-editar-codigo" class="btn btn-outline" disabled>✏️ Editar código</button>
+            <button id="btn-editar-hijo" class="btn btn-outline" disabled>✏️ Editar hijos</button>
+            <button id="btn-aislar" class="btn btn-outline">🔍 Aislar cuadrante</button>
+            <button id="btn-delete-child" class="btn btn-danger" disabled>🗑️ Eliminar hijo</button>
+            <button id="btn-delete-parent" class="btn btn-danger" disabled>🗑️ Eliminar cuadrante</button>
+            
+            <!-- Hidden buttons for edit modes -->
+            <button id="btn-guardar-padre" class="btn btn-success" title="Guardar cambios del padre" style="display:none;">
+                💾 Guardar padre
+            </button>
+            <button id="btn-cancelar-edicion-padre" class="btn btn-secondary" title="Cancelar edición del padre" style="display:none;">
+                ❌ Cancelar edición
+            </button>
+            <button id="btn-guardar-hijo" class="btn btn-success" title="Guardar cambios de hijos" style="display:none;">
+                💾 Guardar hijos
+            </button>
+            <button id="btn-cancelar-edicion-hijo" class="btn btn-secondary" title="Cancelar edición de hijos" style="display:none;">
+                ❌ Cancelar edición
+            </button>
+        </div>
+
+        <!-- Esta fila sube inmediatamente debajo de la primaria -->
+        <div id="toolbar-secondary" class="toolbar-secondary">
+            <button id="btn-export" class="btn btn-success">⬆️ Exportar GeoJSON</button>
+            <button id="btn-import-geojson" class="btn btn-outline">⬇️ Importar GeoJSON</button>
+            <input id="file-geojson" type="file" accept=".geojson,.json,application/geo+json,application/json" hidden />
+
+            <!-- Paleta + Recolor -->
+            <div id="palette" class="palette scroller">
+                <!-- Los swatches se generan por JavaScript -->
+            </div>
+            <button id="btn-recolor" class="btn btn-outline">🎨 Modo recolor</button>
+        </div>
+    </div>
+    
+    <!-- Map Container -->
+    <div class="map-container">
+        <!-- Mapa Leaflet -->
+        <div id="map"></div>
+    </div>
+    
+    <!-- Modal para código de subcuadrante -->
+    <div id="modal-codigo-hijo" class="modal hidden">
+        <div class="modal-content">
+            <h3>Nuevo subcuadrante</h3>
+            <div class="row">
+                <label>Ciudad</label>
+                <input id="hijo-ciudad" type="text" readonly>
+            </div>
+            <div class="row">
+                <label>Ruta</label>
+                <input id="hijo-ruta" type="text" readonly>
+            </div>
+            <div class="row">
+                <label>Cuadrante</label>
+                <input id="hijo-cuadrante" type="text" readonly>
+            </div>
+            <div class="row">
+                <label>Código completo</label>
+                <input id="hijo-codigo" type="text">
+                <small id="formato-help" class="form-text">Formato: CL_1_01_S01</small>
+            </div>
+            <div class="actions">
+                <button id="hijo-cancelar" class="btn-secondary">Cancelar</button>
+                <button id="hijo-guardar" class="btn-primary">Guardar</button>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Leaflet (local) -->
+    <script src="/static/vendor/leaflet/1.9.4/leaflet.js"></script>
+    
+    <!-- Leaflet.Draw (local) -->
+    <script src="/static/vendor/leaflet-draw/1.0.4/leaflet.draw.js"></script>
+    
+    <!-- Turf.js for geospatial operations (local with CDN fallback) -->
+    <script src="/static/vendor/turf/turf.min.js" onerror="console.warn('Turf.js local failed, loading from CDN')"></script>
+    
+    <!-- Proj4js for coordinate transformations (local with CDN fallback) -->
+    <script src="/static/vendor/proj4/proj4.min.js" onerror="console.warn('Proj4.js local failed, loading from CDN')"></script>
+    
+    <!-- CDN Fallbacks -->
+    <script>
+      // Fallback Turf.js
+      (function ensureTurf(){
+        if (!window.turf) {
+          var s=document.createElement('script');
+          s.src='https://cdn.jsdelivr.net/npm/@turf/turf@6.5.0/turf.min.js';
+          s.onload=()=>console.log('Turf.js (CDN) cargado');
+          document.head.appendChild(s);
+        } else {
+          console.log('Turf.js (local) disponible');
+        }
+      })();
+
+      // Fallback Proj4.js
+      (function ensureProj4(){
+        if (!window.proj4) {
+          var s=document.createElement('script');
+          s.src='https://cdn.jsdelivr.net/npm/proj4@2.9.2/dist/proj4.min.js';
+          s.onload=()=>console.log('Proj4.js (CDN) cargado');
+          document.head.appendChild(s);
+        } else {
+          console.log('Proj4.js (local) disponible');
+        }
+      })();
+    </script>
+    
+    <!-- Production dependencies configuration -->
+    <script src="/static/quadrants_editor/production_dependencies.js"></script>
+    
+    <!-- Nuestros estilos y script -->
+    <link rel="stylesheet" href="/static/quadrants_editor/editor.css" />
+    <script defer src="/static/quadrants_editor/editor.js"></script>
+    
+    <!-- Testing frameworks (comentado para evitar 404s) -->
+    <!-- <script defer src="/static/quadrants_editor/test_project_registry.js"></script> -->
+    <!-- <script defer src="/static/quadrants_editor/test_editing_robustness.js"></script> -->
+</body>
+</html>

@@ -1,0 +1,128 @@
+# =========================
+# Python / Flask
+# =========================
+# Entornos
+.venv/
+venv/
+ENV/
+env/
+ambiente_desarrollo
+*.virtualenv
+
+# Cachés / bytecode
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Build / distribución
+dist/
+build/
+*.egg-info/
+.eggs/
+
+# Cobertura / caches / tmp
+.coverage*
+*.coverage
+coverage.xml
+htmlcov/
+.cache/
+.pytest_cache/
+.mypy_cache/
+.pyre/
+.nox/
+.tox/
+pytest_cache/
+
+# Logs
+*.log
+*app.log
+logs/
+
+# Variables de entorno (mantén un ejemplo)
+.env
+**/.env
+**/.env.local
+**/.env.cache
+
+!.env.example
+
+# =========================
+# Node / Frontend
+# =========================
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+*.map
+
+# Bloqueos (si NO usas npm/yarn/pnpm en este repo)
+package-lock.json
+yarn.lock
+pnpm-lock.yaml
+
+# =========================
+# IDE / OS
+# ========================= 
+.vscode/
+.idea/
+*.swp
+*.swo
+*.code-workspace
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# =========================
+# App-specific
+# =========================
+# Mapas HTML generados por la app (mantén solo los de esta carpeta)
+static/maps/*.html
+
+Pruebas/Resultados M1/**
+Pruebas/Resultados M1/*.html
+Pruebas/Resultados M1/*.csv
+
+Pruebas/Resultados M2/**
+Pruebas/Resultados M2/*.html
+Pruebas/Resultados M2/*.csv
+
+Pruebas/Resultados_M2_Test/**
+Pruebas/Resultados_M2_Test/*.html
+Pruebas/Resultados_M2_Test/*.csv
+
+# ⚠️ No ignores todo *.html / *.pdf globalmente
+# Si necesitas ignorar PDFs de informes, hazlo por carpeta:
+# reports/**/*.pdf
+
+# Mantener vendorizadas las libs del editor (NO ignorarlas)
+!static/vendor/**
+!static/quadrants_editor/**
+
+# Asegura que los GeoJSON del proyecto se versionen
+!geojson/**
+
+# Configuración local de desarrollo
+instance/
+.webassets-cache
+
+# Jupyter
+.ipynb_checkpoints/
+
+# Notas y documentación interna
+notas/
+
+# Temporales
+*.tmp
+*.bak
+tmp/
+scratch/
+
+# Depuración
+*.prof
+*.lprof
+*.stackdump
+
+# Contenedores
+docker-compose.override.yml
+
