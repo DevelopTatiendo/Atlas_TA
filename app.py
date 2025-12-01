@@ -283,6 +283,33 @@ with st.form(key="filtros_form"):
         st.session_state["color_mode_muestras"] = color_mode
 
         # (Opciones avanzadas y cuadrantes ocultos en esta versión de UI)
+        # DESACTIVAR EDITOR DE CUADRANTES
+        # Expander de cuadrantes (opcional)
+        # with st.expander("🗺️ Cuadrantes (opcional)"):
+        #     st.write("Sube un archivo GeoJSON personalizado para usarlo como base en lugar de las comunas por defecto.")
+        #     uploaded_file = st.file_uploader(
+        #         "Archivo GeoJSON:",
+        #         type=["geojson"],
+        #         key="muestras_geojson_uploader"
+        #     )
+        #     if uploaded_file is not None:
+        #         try:
+        #             raw = uploaded_file.read().decode("utf-8")
+        #             obj = json.loads(raw)
+        #             if obj.get("type") == "FeatureCollection":
+        #                 st.session_state["muestras_override_fc"] = obj
+        #                 st.success(f"Se cargó '{uploaded_file.name}'. Se usará en lugar de las comunas por defecto.")
+        #                 st.caption("Este GeoJSON reemplazará las comunas base para el mapa de Muestras.")
+        #             else:
+        #                 st.error("El archivo debe ser un FeatureCollection válido.")
+        #                 st.session_state["muestras_override_fc"] = None
+        #         except Exception:
+        #             st.error("Error leyendo el GeoJSON. Verifica el formato.")
+        #             st.session_state["muestras_override_fc"] = None
+        #     else:
+        #         if "muestras_override_fc" in st.session_state:
+        #             del st.session_state["muestras_override_fc"]
+
         # === Panel Auditoría (Clientes X Muestras) ===
         agrupar_por_local = "Promotor" if st.session_state.get("color_mode_muestras") == "Promotores" else "Mes"
         if "muestras_modo_auditoria" not in st.session_state:
@@ -792,6 +819,13 @@ st.markdown(
     unsafe_allow_html=True
 )
 
+# # Card: Segmentación de ciudades (enlace al editor)
+# ciudad_normalizada = ciudad.upper().replace("Á", "A").replace("É", "E").replace("Í", "I").replace("Ó", "O").replace("Ú", "U")
+# editor_url = f"{FLASK_SERVER}/editor/cuadrantes?city={ciudad_normalizada}"
+# st.markdown("### Segmentación de ciudades")
+# st.caption("Abre el editor para segmentar y gestionar cuadrantes por ciudad.")
+# st.link_button("🗺️ Abrir editor de cuadrantes", editor_url)
+
 # Procesamiento
 if submit_button:
     try:
@@ -893,23 +927,24 @@ if submit_button:
                     logging.error(f"Error generando datos (nuevo flujo clientes): {e}")
                     df_original = pd.DataFrame(); df_filtrado = pd.DataFrame(); df_agrupado = pd.DataFrame()
                 resultado = manejar_error(
-                    generar_mapa_muestras_clientes,
+                    generar_mapa_muestras_visual,
                     fecha_inicio=str(fecha_inicio),
                     fecha_fin=str(fecha_fin),
                     ciudad=ciudad,
-                    color_mode=st.session_state.get("color_mode_muestras", "Promotores"),
-                    barrios=None,
+                    agrupar_por=agrupar_por_local,
+                    auditoria=False,
+                    override_fc=override_fc,
                 )
                 if resultado:
                     try:
-                        map_filename, df_export, export_meta, _legend_html = resultado
+                        map_filename, n_puntos, df_export = resultado
                         filename = map_filename
-                        try:
-                            n_puntos = int(len(df_filtrado)) if isinstance(df_filtrado, pd.DataFrame) else (len(df_export) if df_export is not None else 0)
-                        except Exception:
-                            n_puntos = 0
                         st.session_state["muestras_export_df"] = df_export
-                        st.session_state["muestras_export_meta"] = export_meta
+                        st.session_state["muestras_export_meta"] = {
+                            "ciudad": ciudad,
+                            "fecha_inicio": fecha_inicio,
+                            "fecha_fin": fecha_fin,
+                        }
                         # Debug: filename generado y verificación de existencia local antes de invocar Flask
                         try:
                             _abs_gen = os.path.abspath(os.path.join("static", "maps", filename))
