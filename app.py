@@ -318,89 +318,88 @@ with st.form(key="filtros_form"):
             st.session_state["promotor_auditoria"] = None
         if "mes_auditoria" not in st.session_state:
             st.session_state["mes_auditoria"] = None
-        #ACTIVAR DESACTIVAR MODO AUDITORIA
 
-        # with st.expander("Auditoría de Muestras", expanded=False):
-        #     activar = st.checkbox(
-        #         "Activar modo auditoría",
-        #         value=st.session_state["muestras_modo_auditoria"],
-        #         help="Enfoca el mapa en un promotor o mes específico según agrupación"
-        #     )
-        #     st.session_state["muestras_modo_auditoria"] = activar
-        #     if activar:
-        #         if agrupar_por_local == "Promotor":
-        #             from new_mapa_muestras import CENTROOPES
+        with st.expander("Auditoría de Muestras", expanded=False):
+            activar = st.checkbox(
+                "Activar modo auditoría",
+                value=st.session_state["muestras_modo_auditoria"],
+                help="Enfoca el mapa en un promotor o mes específico según agrupación"
+            )
+            st.session_state["muestras_modo_auditoria"] = activar
+            if activar:
+                if agrupar_por_local == "Promotor":
+                    from new_mapa_muestras import CENTROOPES
 
-        #             ciudad_norm = ciudad.upper().replace("Á","A").replace("É","E").replace("Í","I").replace("Ó","O").replace("Ú","U")
-        #             centroope = CENTROOPES.get(ciudad_norm)
+                    ciudad_norm = ciudad.upper().replace("Á","A").replace("É","E").replace("Í","I").replace("Ó","O").replace("Ú","U")
+                    centroope = CENTROOPES.get(ciudad_norm)
 
-        #             if centroope is not None:
-        #                 cache_key = f"audit_promotores_{ciudad_norm}_{fecha_inicio}_{fecha_fin}"
-        #                 if st.session_state.get("audit_promotores_cache_key") != cache_key:
-        #                     try:
-        #                         df_prom = listar_promotores(centroope, str(fecha_inicio), str(fecha_fin))
-        #                     except Exception:
-        #                         df_prom = pd.DataFrame()
+                    if centroope is not None:
+                        cache_key = f"audit_promotores_{ciudad_norm}_{fecha_inicio}_{fecha_fin}"
+                        if st.session_state.get("audit_promotores_cache_key") != cache_key:
+                            try:
+                                df_prom = listar_promotores(centroope, str(fecha_inicio), str(fecha_fin))
+                            except Exception:
+                                df_prom = pd.DataFrame()
 
-        #                     prom_rows = []
-        #                     if not df_prom.empty:
-        #                         col_id = "id_promotor"
-        #                         col_nombre = "apellido_promotor" if "apellido_promotor" in df_prom.columns else "nombre_promotor"
-        #                         tmp = df_prom[[col_id, col_nombre]].dropna(subset=[col_id]).drop_duplicates(col_id)
+                            prom_rows = []
+                            if not df_prom.empty:
+                                col_id = "id_promotor"
+                                col_nombre = "apellido_promotor" if "apellido_promotor" in df_prom.columns else "nombre_promotor"
+                                tmp = df_prom[[col_id, col_nombre]].dropna(subset=[col_id]).drop_duplicates(col_id)
 
-        #                         for _, r in tmp.iterrows():
-        #                             pid = int(r[col_id])
-        #                             nombre = str(r[col_nombre] or pid).strip()
-        #                             prom_rows.append((pid, nombre))
+                                for _, r in tmp.iterrows():
+                                    pid = int(r[col_id])
+                                    nombre = str(r[col_nombre] or pid).strip()
+                                    prom_rows.append((pid, nombre))
 
-        #                     st.session_state["audit_promotores_cache"] = prom_rows
-        #                     st.session_state["audit_promotores_cache_key"] = cache_key
+                            st.session_state["audit_promotores_cache"] = prom_rows
+                            st.session_state["audit_promotores_cache_key"] = cache_key
 
-        #                 lista_prom = st.session_state.get("audit_promotores_cache", [])
-        #                 opciones_prom = [f"{pid} - {nombre}" for pid, nombre in lista_prom]
+                        lista_prom = st.session_state.get("audit_promotores_cache", [])
+                        opciones_prom = [f"{pid} - {nombre}" for pid, nombre in lista_prom]
 
-        #                 sel_prom = st.selectbox(
-        #                     "Promotor a auditar",
-        #                     options=["(ninguno)"] + opciones_prom,
-        #                     index=0,
-        #                 )
+                        sel_prom = st.selectbox(
+                            "Promotor a auditar",
+                            options=["(ninguno)"] + opciones_prom,
+                            index=0,
+                        )
 
-        #                 if sel_prom != "(ninguno)" and lista_prom:
-        #                     try:
-        #                         pid_str = sel_prom.split(" - ", 1)[0].strip()
-        #                         st.session_state["promotor_auditoria"] = int(pid_str)
-        #                     except Exception:
-        #                         st.session_state["promotor_auditoria"] = None
-        #                 else:
-        #                     st.session_state["promotor_auditoria"] = None
-        #             else:
-        #                 st.info("No se encontró centro de operación para esta ciudad.")
-        #                 st.session_state["promotor_auditoria"] = None
-        #             # En modo Promotor no necesitamos mes
-        #             st.session_state["mes_auditoria"] = None
-        #         elif agrupar_por_local == "Mes":
-        #             meses = obtener_meses_auditoria()
-        #             opciones_meses = [f"{num:02d} - {nombre}" for num, nombre in meses]
+                        if sel_prom != "(ninguno)" and lista_prom:
+                            try:
+                                pid_str = sel_prom.split(" - ", 1)[0].strip()
+                                st.session_state["promotor_auditoria"] = int(pid_str)
+                            except Exception:
+                                st.session_state["promotor_auditoria"] = None
+                        else:
+                            st.session_state["promotor_auditoria"] = None
+                    else:
+                        st.info("No se encontró centro de operación para esta ciudad.")
+                        st.session_state["promotor_auditoria"] = None
+                    # En modo Promotor no necesitamos mes
+                    st.session_state["mes_auditoria"] = None
+                elif agrupar_por_local == "Mes":
+                    meses = obtener_meses_auditoria()
+                    opciones_meses = [f"{num:02d} - {nombre}" for num, nombre in meses]
 
-        #             sel_mes = st.selectbox(
-        #                 "Mes a auditar",
-        #                 options=["(ninguno)"] + opciones_meses,
-        #                 index=0,
-        #             )
+                    sel_mes = st.selectbox(
+                        "Mes a auditar",
+                        options=["(ninguno)"] + opciones_meses,
+                        index=0,
+                    )
 
-        #             if sel_mes != "(ninguno)":
-        #                 try:
-        #                     mes_num = int(sel_mes.split(" - ", 1)[0])
-        #                     st.session_state["mes_auditoria"] = mes_num
-        #                 except Exception:
-        #                     st.session_state["mes_auditoria"] = None
-        #             else:
-        #                 st.session_state["mes_auditoria"] = None
-        #             # En modo Mes no necesitamos promotor
-        #             st.session_state["promotor_auditoria"] = None
-        #     else:
-        #         st.session_state["promotor_auditoria"] = None
-        #         st.session_state["mes_auditoria"] = None
+                    if sel_mes != "(ninguno)":
+                        try:
+                            mes_num = int(sel_mes.split(" - ", 1)[0])
+                            st.session_state["mes_auditoria"] = mes_num
+                        except Exception:
+                            st.session_state["mes_auditoria"] = None
+                    else:
+                        st.session_state["mes_auditoria"] = None
+                    # En modo Mes no necesitamos promotor
+                    st.session_state["promotor_auditoria"] = None
+            else:
+                st.session_state["promotor_auditoria"] = None
+                st.session_state["mes_auditoria"] = None
     elif tipo_mapa == "Visitas":
         # Lista de rutas desde BD (id_ruta, ruta) - usando mismo flujo que Consultores
         from pre_procesamiento.preprocesamiento_consultores import listar_rutas_simple
