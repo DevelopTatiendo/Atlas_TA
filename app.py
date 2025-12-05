@@ -772,50 +772,41 @@ st.markdown(
     .card-cuadrantes {{
         background: linear-gradient(135deg, #5B21B6 0%, #6D28D9 100%);
         color: white;
-        padding: 1.5rem;
-        border-radius: 12px;
-        margin: 1.5rem 0;
-        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        padding: 1.25rem 1.5rem;
+        border-radius: 14px;
+        margin: 1.25rem 0 1rem 0;
+        box-shadow: 0 6px 18px rgba(0,0,0,.16);
         border: 1px solid rgba(255,255,255,.15);
+        display:flex; align-items:center; justify-content:space-between; gap:12px;
+    }}
+    .card-cuadrantes .text {{
+        display:flex; flex-direction:column; gap:6px;
     }}
     .card-cuadrantes h3 {{
-        margin: 0 0 0.5rem 0;
-        font-size: 1.25rem;
-        font-weight: bold;
+        margin: 0; font-size: 1.1rem; font-weight: 700; letter-spacing:-.01em;
     }}
-    .cta-editor {{
-        display: inline-block;
-        background: rgba(255, 255, 255, 0.2);
-        color: white;
-        text-decoration: none;
-        padding: 0.75rem 1.5rem;
-        border-radius: 8px;
-        font-weight: 500;
-        transition: all 0.3s ease;
-        border: 1px solid rgba(255, 255, 255, 0.3);
-    }}
-    .cta-editor:hover {{
-        background: rgba(255, 255, 255, 0.3);
-        transform: translateY(-1px);
-        box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
-        text-decoration: none;
-        color: white;
+    .card-cuadrantes p {{ margin:0; opacity:.92; }}
+    .card-cuadrantes .cta-wrap {{ min-width: 280px; text-align:right; }}
+    @media (max-width: 820px) {{
+      .card-cuadrantes {{ flex-direction:column; align-items:flex-start; }}
+      .card-cuadrantes .cta-wrap {{ width:100%; text-align:left; }}
     }}
     @media (prefers-color-scheme: dark) {{
-        .card-cuadrantes {{
-            border-color: rgba(255,255,255,.25);
-        }}
-        .card-cuadrantes h3 {{
-            color: #f7fafc;
-        }}
-        .card-cuadrantes p {{
-            color: #a0aec0;
-        }}
+      .card-cuadrantes {{ border-color: rgba(255,255,255,.25); }}
+      .card-cuadrantes h3 {{ color: #f7fafc; }}
+      .card-cuadrantes p {{ color: #d1d5db; }}
     }}
-    
-    
+    </style>
+    <div class="card-cuadrantes">
+      <div class="text">
+        <h3>Segmentación de ciudades</h3>
+        <p>Abre el editor para crear y ajustar cuadrantes por ciudad.</p>
+      </div>
+      <div class="cta-wrap">
+        <a href="{editor_url}" target="_blank" rel="noopener" class="btn-link">🗺️ Abrir editor de cuadrantes</a>
+      </div>
     </div>
-    """, 
+    """,
     unsafe_allow_html=True
 )
 
