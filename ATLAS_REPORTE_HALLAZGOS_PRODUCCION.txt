@@ -1,0 +1,146 @@
+PROYECTO: ATLAS
+TIPO: REPORTE DE HALLAZGOS – PRE PRODUCCIÓN
+
+======================================
+1. RESUMEN EJECUTIVO
+======================================
+- Número total de hallazgos: 15
+- Nivel de riesgo general (ALTO / MEDIO / BAJO): ALTO
+- Categorías más críticas: A (Direcciones y rutas), B (Arquitectura de despliegue), C (Seguridad / Producción)
+
+======================================
+2. HALLAZGOS DETALLADOS
+======================================
+
+[H-01]
+Categoría: A – Direcciones y rutas
+Archivo: app.py
+Línea / contexto: Definición de FLASK_SERVER con "http://localhost:5000" y uso posterior para construir URLs (mapas y editor)
+Descripción clara del problema: Se construyen URLs absolutas con esquema http y host localhost para acceder al servidor Flask.
+Riesgo en producción: Bajo HTTPS y detrás de reverse proxy, esto produce contenido mixto y dependencia de host/puerto local, impidiendo operación estable.
+
+[H-02]
+Categoría: A – Direcciones y rutas
+Archivo: app.py
+Línea / contexto: Construcción de map_url → "{FLASK_SERVER}/static/maps/{filename}?t={timestamp}" y apertura con window.open()
+Descripción clara del problema: Se construye una URL absoluta hacia /static/maps, asumiendo origen público directo y ruta en raíz.
+Riesgo en producción: Rompe bajo despliegue en subpath (ej. /mapas/) y expone el host/puerto del backend en la interfaz y logs.
+
+[H-03]
+Categoría: A – Direcciones y rutas
+Archivo: app.py
+Línea / contexto: Construcción de editor_url → "{FLASK_SERVER}/editor/cuadrantes?city=..."
+Descripción clara del problema: Enlace absoluto para abrir el editor de cuadrantes en un origen separado.
+Riesgo en producción: Dependencia de URL absoluta no compatible con rutas relativas y subpath corporativo; riesgo de contenido mixto con HTTPS.
+
+[H-04]
+Categoría: A – Direcciones y rutas
+Archivo: flask_server.py
+Línea / contexto: app.run(port=5000)
+Descripción clara del problema: Puerto explícito 5000 en el servidor Flask.
+Riesgo en producción: Exposición de puerto público y dependencia del mapeo directo, contrario a despliegue bajo proxy de aplicación corporativa.
+
+[H-05]
+Categoría: B – Arquitectura de despliegue
+Archivo: app.py / flask_server.py
+Línea / contexto: Comunicación directa Streamlit → Flask usando URLs absolutas; CORS abierto en Flask
+Descripción clara del problema: Se asume arquitectura multi-origen (Streamlit y Flask) accesibles públicamente.
+Riesgo en producción: Complica integración HTTPS bajo un único origen FullControl; aumenta superficie de errores por proxy/subpath y políticas CSP.
+
+[H-06]
+Categoría: B – Arquitectura de despliegue
+Archivo: flask_server.py
+Línea / contexto: static_url_path="/static" y rutas /static/*, /maps/*, /geojson/* en raíz
+Descripción clara del problema: Rutas ancladas a raíz del dominio.
+Riesgo en producción: Incompatibles con operación bajo carpeta raíz corporativa (ej. /mapas/); require reescrituras en proxy y puede fallar si no se ajusta base path.
+
+[H-07]
+Categoría: C – Seguridad / Producción
+Archivo: flask_server.py
+Línea / contexto: CORS(app) habilitado globalmente
+Descripción clara del problema: Permite solicitudes cross-origin sin restricciones.
+Riesgo en producción: Aumenta riesgo de acceso indebido desde otros orígenes y exposición sin controles.
+
+[H-08]
+Categoría: C – Seguridad / Producción
+Archivo: flask_server.py
+Línea / contexto: Rutas /editor/cuadrantes, /static/quadrants_editor/*, /static/vendor/*, /geojson/* accesibles sin autenticación ni token
+Descripción clara del problema: No existe validación por token ni control de acceso para recursos críticos y datos.
+Riesgo en producción: Permite acceso directo a editor, assets y datos GeoJSON fuera del flujo oficial de FullControl.
+
+[H-09]
+Categoría: C – Seguridad / Producción
+Archivo: app.py
+Línea / contexto: Impresión y uso de map_url absoluto en UI/log
+Descripción clara del problema: La URL de mapas expone el host/backend de Flask al usuario y en logs.
+Riesgo en producción: Evidencia de infraestructura (host/puerto) en cliente y registros, contrario a políticas de ocultamiento.
+
+[H-10]
+Categoría: D – Normalización de paths
+Archivo: new_mapa_muestras.py
+Línea / contexto: Lectura de GeoJSON por rutas de filesystem (geojson/rutas/<ciudad>/*.geojson) con normalización de ciudad en mayúsculas
+Descripción clara del problema: Dependencias de rutas de archivos con mezcla de mayúsculas/minúsculas y nombres normalizados.
+Riesgo en producción: Riesgos de case sensitivity en Linux y fragilidad por directorio de trabajo; divergencias entre rutas web y de sistema.
+
+[H-11]
+Categoría: B – Arquitectura de despliegue
+Archivo: app.py
+Línea / contexto: Descargas y accesos a /static/maps, /static/vendor vía enlaces absolutos
+Descripción clara del problema: Uso de rutas ancladas en raíz que no contemplan subpath corporativo.
+Riesgo en producción: Rompe al desplegar bajo /mapas/ y requiere reescribir rutas; alta probabilidad de errores en navegación.
+
+[H-12]
+Categoría: A – Direcciones y rutas
+Archivo: app.py
+Línea / contexto: Validación de FLASK_SERVER con tolerancia explícita a http://localhost
+Descripción clara del problema: Se considera localhost como URL válida en flujos visibles.
+Riesgo en producción: Incumple política de no exponer localhost; potencial contenido mixto bajo HTTPS.
+
+[H-13]
+Categoría: C – Seguridad / Producción
+Archivo: static/maps/* (HTML generados por Folium)
+Línea / contexto: Inclusión de librerías vía CDN en mapas generados (propio de Folium por defecto)
+Descripción clara del problema: Dependencias externas (CDN) en contenido servido.
+Riesgo en producción: Riesgos de CSP/HTTPS y disponibilidad; posible bloqueo por políticas corporativas.
+
+[H-14]
+Categoría: E – Riesgos operativos
+Archivo: app.py / flask_server.py
+Línea / contexto: Construcción manual de URLs; confianza en host/puerto; apertura en nueva pestaña mediante script
+Descripción clara del problema: Varios puntos del flujo dependen de valores de red visibles y rutas absolutas.
+Riesgo en producción: Ruptura al cambiar dominio/IP, activar HTTPS, o aplicar reverse proxy; comportamiento no predecible bajo subpath.
+
+[H-15]
+Categoría: C – Seguridad / Producción
+Archivo: flask_server.py
+Línea / contexto: /geojson/default y /geojson/<path> accesibles sin controles
+Descripción clara del problema: Acceso a datos base de comunas/cuadrantes sin autenticar.
+Riesgo en producción: Permite consumo directo de datos; el acceso debe estar controlado por token según política.
+
+======================================
+3. PATRONES DETECTADOS
+======================================
+- Repetición de construcción de URLs absolutas con esquema http y rutas en raíz (/static, /maps, /editor).
+- Suposición de arquitectura multi-origen (Streamlit + Flask) accesible de forma pública con CORS abierto.
+- Ausencia de validación por token en rutas críticas (editor, geojson, vendor, maps).
+- Dependencia de lectura de archivos por rutas de filesystem con posibles problemas de mayúsculas/minúsculas.
+- Uso de recursos externos vía CDN en mapas generados.
+
+======================================
+4. RIESGOS SI SE DESPLIEGA ASÍ
+======================================
+- Qué se rompería: Navegación y carga de assets bajo subpath (/mapas/); apertura de mapas en nueva pestaña; enlaces absolutos a /static/*. 
+- Qué se expondría: Host/puerto del backend de mapas; rutas internas; datos geojson; editor de cuadrantes sin validar.
+- Qué impediría la integración con FullControl: Falta de rutas relativas y base path; ausencia de token; arquitectura multi-origen con CORS abierto y http.
+
+======================================
+5. CRITERIOS DE CIERRE
+======================================
+(lista de condiciones que deberían cumplirse para considerar ATLAS apto para producción)
+- No debe existir ninguna referencia visible a localhost, 127.0.0.1, puertos (8501/5000) ni URLs absolutas en UI/logs.
+- Todo el sistema debe funcionar bajo HTTPS, detrás de FullControl, con rutas relativas compatibles con un subpath (ej. /mapas/).
+- Debe existir validación por token en todas las rutas de acceso (editor, maps, geojson, vendor), impidiendo acceso directo.
+- Deben eliminarse CORS abiertos y asegurar un único origen controlado por FullControl.
+- Debe evitarse dependencia de CDNs externos en mapas y assets, o adecuarse a políticas CSP/HTTPS corporativas.
+- Normalizar y verificar paths de filesystem y web (mayúsculas/minúsculas) para compatibilidad en Linux y producción.
+- Asegurar que cambios de dominio/IP, activación de HTTPS y uso de reverse proxy no rompan la aplicación.
