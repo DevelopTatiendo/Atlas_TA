@@ -73,6 +73,57 @@ def listar_promotores(id_centroope: int, fecha_inicio: str, fecha_fin: str) -> p
     if "apellido_promotor" in df.columns:
         df["apellido_promotor"] = df["apellido_promotor"].fillna("").astype(str)
     return df[[c for c in ["id_promotor", "apellido_promotor"] if c in df.columns]].dropna(subset=["id_promotor"]).drop_duplicates("id_promotor").reset_index(drop=True)
+
+# --- Helpers locales para rutas ---
+def _normalizar_ciudad_local(ciudad: str) -> str:
+    s = str(ciudad or "")
+    return ''.join(c for c in unicodedata.normalize('NFD', s) if unicodedata.category(c) != 'Mn').upper().strip()
+
+# Mapeo local de ciudad -> id_centroope
+CO_BY_CITY = {
+    'CALI': 2,
+    'MEDELLIN': 3,
+    'MANIZALES': 6,
+    'PEREIRA': 5,
+    'BOGOTA': 4,
+    'BARRANQUILLA': 8,
+    'BUCARAMANGA': 7,
+}
+
+def listar_rutas_simple(ciudad: str) -> pd.DataFrame:
+    """
+    Devuelve DataFrame con columnas:
+      - id_ruta (Int64)
+      - ruta (str)
+    para la ciudad, consultando fullclean_contactos.rutas_cobro por id_centroope.
+    """
+    ciudad_norm = _normalizar_ciudad_local(ciudad)
+    co = CO_BY_CITY.get(ciudad_norm)
+    if co is None:
+        raise ValueError(f"Ciudad no reconocida para rutas: {ciudad}")
+
+    query = (
+        """
+        SELECT r.id AS id_ruta, r.ruta
+        FROM fullclean_contactos.rutas_cobro r
+        WHERE r.id_centroope = :co
+        ORDER BY r.ruta;
+        """
+    )
+    params = {"co": int(co)}
+    df = sql_read(query, params=params, schema="fullclean_contactos")
+    if df is None or df.empty:
+        return pd.DataFrame(columns=["id_ruta", "ruta"])
+
+    # Normalización de tipos
+    if "id_ruta" in df.columns:
+        df["id_ruta"] = pd.to_numeric(df["id_ruta"], errors="coerce").astype("Int64")
+    if "ruta" in df.columns:
+        df["ruta"] = df["ruta"].fillna("").astype(str)
+
+    df = df[[c for c in ["id_ruta", "ruta"] if c in df.columns]]
+    df = df.dropna(subset=["id_ruta"]).drop_duplicates("id_ruta").reset_index(drop=True)
+    return df
 def consultar_db(
     id_centroope: int,
     fecha_inicio: str,
@@ -215,4 +266,10 @@ def crear_df(df_raw: pd.DataFrame) -> pd.DataFrame:
     return df.reset_index(drop=True)[COLUMNAS_ESTANDAR]
 
 
-__all__ = ["consultar_db", "crear_df", "COLUMNAS_ESTANDAR", "listar_promotores"]
+__all__ = [
+    "consultar_db",
+    "crear_df",
+    "COLUMNAS_ESTANDAR",
+    "listar_promotores",
+    "listar_rutas_simple",
+]

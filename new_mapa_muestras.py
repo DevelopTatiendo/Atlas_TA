@@ -34,6 +34,7 @@ from pyproj import Geod
 from pre_procesamiento.new_preprocesamiento_muestras import (
     consultar_db,
     crear_df,
+    listar_rutas_simple,
 )
 from pre_procesamiento.metricas_areas import areas_muestras_resumen
 from utils.gestor_mapas import guardar_mapa_controlado
@@ -888,13 +889,45 @@ def generar_mapa_muestras_visual(
         except Exception:
             barrios_geojson = {"type": "FeatureCollection", "features": []}
 
+    # Obtener nombres de rutas una sola vez por renderizado
+    ruta_by_id = {}
+    try:
+        df_rutas = listar_rutas_simple(ciudad)
+        if df_rutas is not None and not df_rutas.empty:
+            for _, rr in df_rutas.iterrows():
+                try:
+                    rid = int(rr.get('id_ruta')) if rr.get('id_ruta') is not pd.NA else None
+                    nombre = str(rr.get('ruta') or '').strip()
+                    if rid is not None and nombre:
+                        ruta_by_id[rid] = nombre
+                except Exception:
+                    continue
+    except Exception as e:
+        logging.warning(f"No se pudo listar rutas para {ciudad}: {e}")
+
     # Separar features
     features_comunas = []
     features_cuadrantes = []
     for feature in barrios_geojson.get('features', []):
         props = feature.get('properties', {})
         codigo_val = (props.get('codigo') or props.get('CODIGO') or props.get('code') or '').strip()
-        props['display_name'] = resolver_nombre_ruta(ciudad_norm, codigo_val, props)
+        # Intentar obtener id_ruta del feature
+        id_ruta_feature = None
+        for key in ('id_ruta', 'ID_RUTA', 'id_ruta_cobro', 'ID_RUTA_COBRO'):
+            if key in props and props.get(key) is not None and str(props.get(key)).strip() != '':
+                try:
+                    id_ruta_feature = int(str(props.get(key)).strip())
+                    break
+                except Exception:
+                    continue
+        ruta_nombre = ruta_by_id.get(id_ruta_feature) if (id_ruta_feature is not None) else None
+        # Inyectar nombre de ruta en properties
+        props['ruta_nombre'] = ruta_nombre if ruta_nombre else 'SIN RUTA'
+        # Priorizar display_name por nombre de ruta; fallback al resolver existente
+        if ruta_nombre:
+            props['display_name'] = ruta_nombre
+        else:
+            props['display_name'] = resolver_nombre_ruta(ciudad_norm, codigo_val, props)
         if codigo_val:
             if _es_cuadrante_padre(feature) or _es_cuadrante_hijo(feature):
                 features_cuadrantes.append(feature)
