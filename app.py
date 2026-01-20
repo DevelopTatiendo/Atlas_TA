@@ -613,13 +613,13 @@ if ES_MAPA_MUESTRAS:
             print(f"[STREAMLIT] Error verificando filename en sesión: {_e_sess}", flush=True)
     
     if map_filename and os.path.exists(os.path.join("static", "maps", map_filename)):
-        from datetime import datetime
         import re
         
         ciudad_html = re.sub(r'[^A-Za-z0-9]', '', ciudad.upper())
         ciudad_html = ciudad_html.replace('Á', 'A').replace('É', 'E').replace('Í', 'I').replace('Ó', 'O').replace('Ú', 'U')
-        fecha_actual = datetime.now().strftime("%Y%m%d")
-        filename_html = f"Mapa_Muestras_{ciudad_html}_{fecha_actual}.html"
+        color_mode = st.session_state.get("color_mode_muestras")
+        sufijo = "PROMOTORES" if color_mode == "Promotores" else "MESES"
+        filename_html = f"MAPA_MUESTRAS_{ciudad_html}_{sufijo}.html"
         
         with open(os.path.join("static", "maps", map_filename), "rb") as f:
             html_bytes = f.read()
