@@ -969,6 +969,8 @@ def generar_mapa_muestras_visual(
         props = feature_padre.get('properties', {})
         codigo = str(props.get('codigo', ''))
         nombre_display = props.get('display_name', codigo)
+        # Alinear el título del popup con el tooltip
+        nombre_popup = (props.get('display_name') or props.get('ruta_nombre') or codigo)
         m = metricas_cache.get(('PADRE', codigo))
         if not m:
             continue
@@ -976,7 +978,7 @@ def generar_mapa_muestras_visual(
         total_local = m.get('total_muestras', 0)
         dias_activos = m.get('dias_activos', 0)
         popup_html = _popup_cuadrante_muestras(
-            codigo,
+            nombre_popup,
             m['area_m2'],
             total_local,
             dias_activos,
@@ -999,6 +1001,8 @@ def generar_mapa_muestras_visual(
         props = feature_hijo.get('properties', {})
         codigo = str(props.get('codigo', ''))
         nombre_display = props.get('display_name', codigo)
+        # Alinear el título del popup con el tooltip
+        nombre_popup = (props.get('display_name') or props.get('ruta_nombre') or codigo)
         m = metricas_cache.get(('HIJO', codigo))
         if not m:
             continue
@@ -1006,7 +1010,7 @@ def generar_mapa_muestras_visual(
         total_local = m.get('total_muestras', 0)
         dias_activos = m.get('dias_activos', 0)
         popup_html = _popup_cuadrante_muestras(
-            codigo,
+            nombre_popup,
             m['area_m2'],
             total_local,
             dias_activos,
