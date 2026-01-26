@@ -4,7 +4,7 @@
     "type": "visible_layers_export",
     "city": "PEREIRA",
     "total_features": 69,
-    "export_timestamp": "2025-12-05T15:45:12.416Z",
+    "export_timestamp": "2026-01-26T16:58:17.006Z",
     "editor_version": "3.1",
     "export_source": "Visible Layers Only"
   },
@@ -202,7 +202,7 @@
         "id_ruta": 1511,
         "tipo": "PADRE",
         "tipo_cuadrante": "PAP",
-        "fillColor": "#19D3F3",
+        "fillColor": "#F46036",
         "fillOpacity": 0.35,
         "weight": 2,
         "color": "#000000",
@@ -456,7 +456,7 @@
         "id_ruta": 1511,
         "tipo": "PADRE",
         "tipo_cuadrante": "RUTA",
-        "fillColor": "#19D3F3",
+        "fillColor": "#F46036",
         "fillOpacity": 0.35,
         "weight": 2,
         "color": "#000000",
@@ -526,7 +526,7 @@
         "id_ruta": 1512,
         "tipo": "PADRE",
         "tipo_cuadrante": "PAP",
-        "fillColor": "#FF97FF",
+        "fillColor": "#F46036",
         "fillOpacity": 0.35,
         "weight": 2,
         "color": "#000000",
@@ -732,7 +732,7 @@
         "id_ruta": 1512,
         "tipo": "PADRE",
         "tipo_cuadrante": "PAP",
-        "fillColor": "#FF97FF",
+        "fillColor": "#F46036",
         "fillOpacity": 0.35,
         "weight": 2,
         "color": "#000000",
@@ -790,7 +790,7 @@
         "id_ruta": 1512,
         "tipo": "PADRE",
         "tipo_cuadrante": "PAP",
-        "fillColor": "#FF97FF",
+        "fillColor": "#F46036",
         "fillOpacity": 0.35,
         "weight": 2,
         "color": "#000000",
@@ -976,7 +976,7 @@
         "id_ruta": 1512,
         "tipo": "PADRE",
         "tipo_cuadrante": "PAP",
-        "fillColor": "#FF97FF",
+        "fillColor": "#F46036",
         "fillOpacity": 0.35,
         "weight": 2,
         "color": "#000000",
@@ -1150,7 +1150,7 @@
         "id_ruta": 1512,
         "tipo": "PADRE",
         "tipo_cuadrante": "PAP",
-        "fillColor": "#FF97FF",
+        "fillColor": "#F46036",
         "fillOpacity": 0.35,
         "weight": 2,
         "color": "#000000",
@@ -1420,7 +1420,7 @@
         "id_ruta": 1512,
         "tipo": "PADRE",
         "tipo_cuadrante": "PAP",
-        "fillColor": "#FF97FF",
+        "fillColor": "#F46036",
         "fillOpacity": 0.35,
         "weight": 2,
         "color": "#000000",
@@ -1694,7 +1694,7 @@
         "id_ruta": 1512,
         "tipo": "PADRE",
         "tipo_cuadrante": "PAP",
-        "fillColor": "#FF97FF",
+        "fillColor": "#F46036",
         "fillOpacity": 0.35,
         "weight": 2,
         "color": "#000000",
@@ -1872,7 +1872,7 @@
         "id_ruta": 1512,
         "tipo": "PADRE",
         "tipo_cuadrante": "PAP",
-        "fillColor": "#FF97FF",
+        "fillColor": "#F46036",
         "fillOpacity": 0.35,
         "weight": 2,
         "color": "#000000",
@@ -2254,7 +2254,7 @@
         "id_ruta": 1512,
         "tipo": "PADRE",
         "tipo_cuadrante": "PAP",
-        "fillColor": "#FF97FF",
+        "fillColor": "#F46036",
         "fillOpacity": 0.35,
         "weight": 2,
         "color": "#000000",
@@ -2544,7 +2544,7 @@
         "id_ruta": 1513,
         "tipo": "PADRE",
         "tipo_cuadrante": "RUTA",
-        "fillColor": "#FFA15A",
+        "fillColor": "#F46036",
         "fillOpacity": 0.35,
         "weight": 2,
         "color": "#000000",
@@ -2874,7 +2874,7 @@
         "id_ruta": 1513,
         "tipo": "PADRE",
         "tipo_cuadrante": "PAP",
-        "fillColor": "#FFA15A",
+        "fillColor": "#F46036",
         "fillOpacity": 0.35,
         "weight": 2,
         "color": "#000000",
@@ -3172,7 +3172,7 @@
         "id_ruta": 1513,
         "tipo": "PADRE",
         "tipo_cuadrante": "RUTA",
-        "fillColor": "#FFA15A",
+        "fillColor": "#F46036",
         "fillOpacity": 0.35,
         "weight": 2,
         "color": "#000000",
@@ -3338,7 +3338,7 @@
         "id_ruta": 1513,
         "tipo": "PADRE",
         "tipo_cuadrante": "RUTA",
-        "fillColor": "#FFA15A",
+        "fillColor": "#F46036",
         "fillOpacity": 0.35,
         "weight": 2,
         "color": "#000000",
@@ -3523,366 +3523,6 @@
       "type": "Feature",
       "properties": {
         "nivel": "cuadrante",
-        "codigo": "PR_ruta_212_02",
-        "ciudad": "PR",
-        "id_ruta": 212,
-        "tipo": "PADRE",
-        "tipo_cuadrante": "PAP",
-        "fillColor": "#2E91E5",
-        "fillOpacity": 0.35,
-        "weight": 2,
-        "color": "#000000",
-        "ruta_publica": "RUTA 1 DOS Q",
-        "code": "PR_ruta_212_02",
-        "city": "PR",
-        "system": "RUTA",
-        "route_id": 212,
-        "route_name": "RUTA 1 DOS Q",
-        "base_code": "PR_ruta_212",
-        "dup_index": 2
-      },
-      "geometry": {
-        "type": "Polygon",
-        "coordinates": [
-          [
-            [
-              -75.655573,
-              4.859257
-            ],
-            [
-              -75.655648,
-              4.859064
-            ],
-            [
-              -75.655745,
-              4.858888
-            ],
-            [
-              -75.655841,
-              4.858706
-            ],
-            [
-              -75.655863,
-              4.858428
-            ],
-            [
-              -75.655949,
-              4.858268
-            ],
-            [
-              -75.656147,
-              4.858166
-            ],
-            [
-              -75.65619,
-              4.857883
-            ],
-            [
-              -75.656222,
-              4.857696
-            ],
-            [
-              -75.656345,
-              4.857632
-            ],
-            [
-              -75.656431,
-              4.857536
-            ],
-            [
-              -75.656571,
-              4.85737
-            ],
-            [
-              -75.656769,
-              4.857194
-            ],
-            [
-              -75.65656,
-              4.856926
-            ],
-            [
-              -75.656276,
-              4.856718
-            ],
-            [
-              -75.655868,
-              4.856531
-            ],
-            [
-              -75.655686,
-              4.856424
-            ],
-            [
-              -75.655519,
-              4.856349
-            ],
-            [
-              -75.655391,
-              4.856403
-            ],
-            [
-              -75.655257,
-              4.856761
-            ],
-            [
-              -75.654307,
-              4.858102
-            ],
-            [
-              -75.655037,
-              4.858498
-            ],
-            [
-              -75.654747,
-              4.859209
-            ],
-            [
-              -75.655519,
-              4.859492
-            ],
-            [
-              -75.655573,
-              4.859257
-            ]
-          ]
-        ]
-      }
-    },
-    {
-      "type": "Feature",
-      "properties": {
-        "nivel": "cuadrante",
-        "codigo": "PR_ruta_212_09",
-        "ciudad": "PR",
-        "id_ruta": 212,
-        "tipo": "PADRE",
-        "tipo_cuadrante": "PAP",
-        "fillColor": "#2E91E5",
-        "fillOpacity": 0.35,
-        "weight": 2,
-        "color": "#000000",
-        "ruta_publica": "RUTA 1 DOS Q",
-        "code": "PR_ruta_212_09",
-        "city": "PR",
-        "system": "RUTA",
-        "route_id": 212,
-        "route_name": "RUTA 1 DOS Q",
-        "base_code": "PR_ruta_212",
-        "dup_index": 9
-      },
-      "geometry": {
-        "type": "Polygon",
-        "coordinates": [
-          [
-            [
-              -75.675604,
-              4.816933
-            ],
-            [
-              -75.676172,
-              4.817478
-            ],
-            [
-              -75.676398,
-              4.81735
-            ],
-            [
-              -75.677224,
-              4.818141
-            ],
-            [
-              -75.677095,
-              4.818248
-            ],
-            [
-              -75.678205,
-              4.819071
-            ],
-            [
-              -75.67864,
-              4.818766
-            ],
-            [
-              -75.679058,
-              4.818643
-            ],
-            [
-              -75.680684,
-              4.820156
-            ],
-            [
-              -75.680652,
-              4.82053
-            ],
-            [
-              -75.680619,
-              4.822257
-            ],
-            [
-              -75.681403,
-              4.822385
-            ],
-            [
-              -75.681344,
-              4.823005
-            ],
-            [
-              -75.680882,
-              4.82339
-            ],
-            [
-              -75.680582,
-              4.823732
-            ],
-            [
-              -75.680137,
-              4.823465
-            ],
-            [
-              -75.680276,
-              4.823219
-            ],
-            [
-              -75.679874,
-              4.823171
-            ],
-            [
-              -75.679488,
-              4.823524
-            ],
-            [
-              -75.679386,
-              4.824577
-            ],
-            [
-              -75.678286,
-              4.824571
-            ],
-            [
-              -75.677567,
-              4.823909
-            ],
-            [
-              -75.676355,
-              4.822946
-            ],
-            [
-              -75.676103,
-              4.821947
-            ],
-            [
-              -75.675352,
-              4.82107
-            ],
-            [
-              -75.674971,
-              4.820594
-            ],
-            [
-              -75.673683,
-              4.818413
-            ],
-            [
-              -75.673855,
-              4.818371
-            ],
-            [
-              -75.674188,
-              4.817665
-            ],
-            [
-              -75.673292,
-              4.817115
-            ],
-            [
-              -75.672889,
-              4.817344
-            ],
-            [
-              -75.672417,
-              4.817248
-            ],
-            [
-              -75.67172,
-              4.817975
-            ],
-            [
-              -75.671371,
-              4.817724
-            ],
-            [
-              -75.671511,
-              4.817152
-            ],
-            [
-              -75.671811,
-              4.817259
-            ],
-            [
-              -75.671956,
-              4.817013
-            ],
-            [
-              -75.671516,
-              4.816831
-            ],
-            [
-              -75.671575,
-              4.816687
-            ],
-            [
-              -75.671698,
-              4.816703
-            ],
-            [
-              -75.672085,
-              4.816168
-            ],
-            [
-              -75.672315,
-              4.816291
-            ],
-            [
-              -75.672492,
-              4.815965
-            ],
-            [
-              -75.673206,
-              4.816281
-            ],
-            [
-              -75.673538,
-              4.816778
-            ],
-            [
-              -75.674445,
-              4.817104
-            ],
-            [
-              -75.674515,
-              4.817355
-            ],
-            [
-              -75.674665,
-              4.817211
-            ],
-            [
-              -75.674944,
-              4.817446
-            ],
-            [
-              -75.675604,
-              4.816933
-            ]
-          ]
-        ]
-      }
-    },
-    {
-      "type": "Feature",
-      "properties": {
-        "nivel": "cuadrante",
         "codigo": "PR_ruta_212_11",
         "ciudad": "PR",
         "id_ruta": 212,
@@ -3994,7 +3634,7 @@
         "id_ruta": 2393,
         "tipo": "PADRE",
         "tipo_cuadrante": "PAP",
-        "fillColor": "#440E03",
+        "fillColor": "#AB63FA",
         "fillOpacity": 0.35,
         "weight": 2,
         "color": "#000000",
@@ -4091,7 +3731,7 @@
         "route_name": "RUTA 4 CUBA",
         "id_ruta": 2830,
         "ruta_publica": "RUTA 4 CUBA",
-        "fillColor": "#AB63FA",
+        "fillColor": "#00CC96",
         "fillOpacity": 0.35,
         "weight": 2,
         "color": "#000000"
@@ -4149,7 +3789,7 @@
         "id_ruta": 2830,
         "tipo": "PADRE",
         "tipo_cuadrante": "RUTA",
-        "fillColor": "#AB63FA",
+        "fillColor": "#00CC96",
         "fillOpacity": 0.35,
         "weight": 2,
         "color": "#000000",
@@ -4411,7 +4051,7 @@
         "id_ruta": 2830,
         "tipo": "PADRE",
         "tipo_cuadrante": "RUTA",
-        "fillColor": "#AB63FA",
+        "fillColor": "#00CC96",
         "fillOpacity": 0.35,
         "weight": 2,
         "color": "#000000",
@@ -4517,7 +4157,7 @@
         "id_ruta": 2830,
         "tipo": "PADRE",
         "tipo_cuadrante": "RUTA",
-        "fillColor": "#AB63FA",
+        "fillColor": "#00CC96",
         "fillOpacity": 0.35,
         "weight": 2,
         "color": "#000000",
@@ -4667,7 +4307,7 @@
         "id_ruta": 2830,
         "tipo": "PADRE",
         "tipo_cuadrante": "PAP",
-        "fillColor": "#AB63FA",
+        "fillColor": "#00CC96",
         "fillOpacity": 0.35,
         "weight": 2,
         "color": "#000000",
@@ -4761,7 +4401,7 @@
         "id_ruta": 2830,
         "tipo": "PADRE",
         "tipo_cuadrante": "PAP",
-        "fillColor": "#AB63FA",
+        "fillColor": "#00CC96",
         "fillOpacity": 0.35,
         "weight": 2,
         "color": "#000000",
@@ -5107,7 +4747,7 @@
         "id_ruta": 2830,
         "tipo": "PADRE",
         "tipo_cuadrante": "PAP",
-        "fillColor": "#AB63FA",
+        "fillColor": "#00CC96",
         "fillOpacity": 0.35,
         "weight": 2,
         "color": "#000000",
@@ -5401,7 +5041,7 @@
         "id_ruta": 2830,
         "tipo": "PADRE",
         "tipo_cuadrante": "PAP",
-        "fillColor": "#AB63FA",
+        "fillColor": "#00CC96",
         "fillOpacity": 0.35,
         "weight": 2,
         "color": "#000000",
@@ -5623,7 +5263,7 @@
         "id_ruta": 2830,
         "tipo": "PADRE",
         "tipo_cuadrante": "PAP",
-        "fillColor": "#AB63FA",
+        "fillColor": "#00CC96",
         "fillOpacity": 0.35,
         "weight": 2,
         "color": "#000000",
@@ -5797,7 +5437,7 @@
         "id_ruta": 2830,
         "tipo": "PADRE",
         "tipo_cuadrante": "PAP",
-        "fillColor": "#AB63FA",
+        "fillColor": "#00CC96",
         "fillOpacity": 0.35,
         "weight": 2,
         "color": "#000000",
@@ -5923,7 +5563,7 @@
         "id_ruta": 2830,
         "tipo": "PADRE",
         "tipo_cuadrante": "PAP",
-        "fillColor": "#AB63FA",
+        "fillColor": "#00CC96",
         "fillOpacity": 0.35,
         "weight": 2,
         "color": "#000000",
@@ -6013,7 +5653,7 @@
         "id_ruta": 2830,
         "tipo": "PADRE",
         "tipo_cuadrante": "PAP",
-        "fillColor": "#AB63FA",
+        "fillColor": "#00CC96",
         "fillOpacity": 0.35,
         "weight": 2,
         "color": "#000000",
@@ -6107,7 +5747,7 @@
         "id_ruta": 2830,
         "tipo": "PADRE",
         "tipo_cuadrante": "PAP",
-        "fillColor": "#AB63FA",
+        "fillColor": "#00CC96",
         "fillOpacity": 0.35,
         "weight": 2,
         "color": "#000000",
@@ -6221,7 +5861,7 @@
         "id_ruta": 2830,
         "tipo": "PADRE",
         "tipo_cuadrante": "PAP",
-        "fillColor": "#AB63FA",
+        "fillColor": "#00CC96",
         "fillOpacity": 0.35,
         "weight": 2,
         "color": "#000000",
@@ -6335,7 +5975,7 @@
         "id_ruta": 2830,
         "tipo": "PADRE",
         "tipo_cuadrante": "PAP",
-        "fillColor": "#AB63FA",
+        "fillColor": "#00CC96",
         "fillOpacity": 0.35,
         "weight": 2,
         "color": "#000000",
@@ -6441,7 +6081,7 @@
         "id_ruta": 2830,
         "tipo": "PADRE",
         "tipo_cuadrante": "RUTA",
-        "fillColor": "#AB63FA",
+        "fillColor": "#00CC96",
         "fillOpacity": 0.35,
         "weight": 2,
         "color": "#000000",
@@ -6659,7 +6299,7 @@
         "id_ruta": 2830,
         "tipo": "PADRE",
         "tipo_cuadrante": "PAP",
-        "fillColor": "#AB63FA",
+        "fillColor": "#00CC96",
         "fillOpacity": 0.35,
         "weight": 2,
         "color": "#000000",
@@ -6757,7 +6397,7 @@
         "id_ruta": 2830,
         "tipo": "PADRE",
         "tipo_cuadrante": "PAP",
-        "fillColor": "#AB63FA",
+        "fillColor": "#00CC96",
         "fillOpacity": 0.35,
         "weight": 2,
         "color": "#000000",
@@ -6938,7 +6578,7 @@
         "route_name": "RUTA 3 CERRITOS L",
         "id_ruta": 2884,
         "ruta_publica": "RUTA 3 CERRITOS L",
-        "fillColor": "#FF6692",
+        "fillColor": "#FF97FF",
         "fillOpacity": 0.35,
         "weight": 2,
         "color": "#000000"
@@ -7092,7 +6732,7 @@
         "id_ruta": 2891,
         "tipo": "PADRE",
         "tipo_cuadrante": "PAP",
-        "fillColor": "#636EFA",
+        "fillColor": "#AB63FA",
         "fillOpacity": 0.35,
         "weight": 2,
         "color": "#000000",
@@ -7528,7 +7168,7 @@
         "id_ruta": 2891,
         "tipo": "PADRE",
         "tipo_cuadrante": "PAP",
-        "fillColor": "#636EFA",
+        "fillColor": "#AB63FA",
         "fillOpacity": 0.35,
         "weight": 2,
         "color": "#000000",
@@ -7638,7 +7278,7 @@
         "id_ruta": 2891,
         "tipo": "PADRE",
         "tipo_cuadrante": "PAP",
-        "fillColor": "#636EFA",
+        "fillColor": "#AB63FA",
         "fillOpacity": 0.35,
         "weight": 2,
         "color": "#000000",
@@ -7764,7 +7404,7 @@
         "id_ruta": 2891,
         "tipo": "PADRE",
         "tipo_cuadrante": "PAP",
-        "fillColor": "#636EFA",
+        "fillColor": "#AB63FA",
         "fillOpacity": 0.35,
         "weight": 2,
         "color": "#000000",
@@ -8025,22 +7665,573 @@
       "type": "Feature",
       "properties": {
         "nivel": "cuadrante",
-        "codigo": "PR_ruta_2894_01",
+        "codigo": "PR_ruta_2993_01",
         "ciudad": "PR",
-        "id_ruta": 2894,
+        "id_ruta": 2993,
         "tipo": "PADRE",
         "tipo_cuadrante": "PAP",
-        "fillColor": "#EF553B",
+        "fillColor": "#AB63FA",
+        "fillOpacity": 0.35,
+        "weight": 2,
+        "color": "#000000",
+        "ruta_publica": "Ruta 1",
+        "code": "PR_ruta_2993_01",
+        "city": "PR",
+        "system": "RUTA",
+        "route_id": 2993,
+        "route_name": "Ruta 1",
+        "base_code": "PR_ruta_2993",
+        "dup_index": 1
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              -75.668346,
+              4.803286
+            ],
+            [
+              -75.670309,
+              4.804889
+            ],
+            [
+              -75.670899,
+              4.805435
+            ],
+            [
+              -75.671457,
+              4.804066
+            ],
+            [
+              -75.669944,
+              4.802986
+            ],
+            [
+              -75.67032,
+              4.801383
+            ],
+            [
+              -75.669451,
+              4.801693
+            ],
+            [
+              -75.66885,
+              4.800923
+            ],
+            [
+              -75.668807,
+              4.800228
+            ],
+            [
+              -75.668957,
+              4.799736
+            ],
+            [
+              -75.669644,
+              4.797138
+            ],
+            [
+              -75.66914,
+              4.797095
+            ],
+            [
+              -75.668796,
+              4.797373
+            ],
+            [
+              -75.668346,
+              4.797406
+            ],
+            [
+              -75.668099,
+              4.796336
+            ],
+            [
+              -75.66752,
+              4.796037
+            ],
+            [
+              -75.667294,
+              4.796379
+            ],
+            [
+              -75.667166,
+              4.796294
+            ],
+            [
+              -75.666093,
+              4.797406
+            ],
+            [
+              -75.665653,
+              4.797427
+            ],
+            [
+              -75.665588,
+              4.798528
+            ],
+            [
+              -75.664988,
+              4.798528
+            ],
+            [
+              -75.664977,
+              4.79918
+            ],
+            [
+              -75.66385,
+              4.798913
+            ],
+            [
+              -75.663936,
+              4.79979
+            ],
+            [
+              -75.66443,
+              4.800249
+            ],
+            [
+              -75.665385,
+              4.79995
+            ],
+            [
+              -75.666114,
+              4.800388
+            ],
+            [
+              -75.666801,
+              4.800837
+            ],
+            [
+              -75.667101,
+              4.801126
+            ],
+            [
+              -75.666661,
+              4.802056
+            ],
+            [
+              -75.667144,
+              4.802666
+            ],
+            [
+              -75.668346,
+              4.803286
+            ]
+          ]
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "nivel": "cuadrante",
+        "codigo": "PR_ruta_2993_03",
+        "ciudad": "PR",
+        "id_ruta": 2993,
+        "tipo": "PADRE",
+        "tipo_cuadrante": "PAP",
+        "fillColor": "#AB63FA",
+        "fillOpacity": 0.35,
+        "weight": 2,
+        "color": "#000000",
+        "ruta_publica": "RUTA 2 CENTRO ALAMOS",
+        "code": "PR_ruta_2993_03",
+        "city": "PR",
+        "system": "RUTA",
+        "route_id": 2993,
+        "route_name": "RUTA 2 CENTRO ALAMOS",
+        "base_code": "PR_ruta_2993",
+        "dup_index": 3
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              -75.687357,
+              4.813848
+            ],
+            [
+              -75.687491,
+              4.812838
+            ],
+            [
+              -75.686928,
+              4.812149
+            ],
+            [
+              -75.687625,
+              4.812229
+            ],
+            [
+              -75.687867,
+              4.810385
+            ],
+            [
+              -75.687937,
+              4.809647
+            ],
+            [
+              -75.686263,
+              4.80947
+            ],
+            [
+              -75.686306,
+              4.80892
+            ],
+            [
+              -75.685555,
+              4.808604
+            ],
+            [
+              -75.684702,
+              4.80838
+            ],
+            [
+              -75.683833,
+              4.808289
+            ],
+            [
+              -75.682197,
+              4.808065
+            ],
+            [
+              -75.681821,
+              4.806723
+            ],
+            [
+              -75.680566,
+              4.808246
+            ],
+            [
+              -75.678383,
+              4.808177
+            ],
+            [
+              -75.678425,
+              4.809444
+            ],
+            [
+              -75.679986,
+              4.810689
+            ],
+            [
+              -75.680931,
+              4.811475
+            ],
+            [
+              -75.680888,
+              4.811978
+            ],
+            [
+              -75.681708,
+              4.812378
+            ],
+            [
+              -75.681666,
+              4.812833
+            ],
+            [
+              -75.682529,
+              4.812876
+            ],
+            [
+              -75.683098,
+              4.813373
+            ],
+            [
+              -75.687357,
+              4.813848
+            ]
+          ]
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "nivel": "cuadrante",
+        "codigo": "PR_ruta_2993_04",
+        "ciudad": "PR",
+        "id_ruta": 2993,
+        "tipo": "PADRE",
+        "tipo_cuadrante": "PAP",
+        "fillColor": "#AB63FA",
+        "fillOpacity": 0.35,
+        "weight": 2,
+        "color": "#000000",
+        "ruta_publica": "RUTA 2 CENTRO ALAMOS",
+        "code": "PR_ruta_2993_04",
+        "city": "PR",
+        "system": "RUTA",
+        "route_id": 2993,
+        "route_name": "RUTA 2 CENTRO ALAMOS",
+        "base_code": "PR_ruta_2993",
+        "dup_index": 4
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              -75.685619,
+              4.818606
+            ],
+            [
+              -75.684214,
+              4.817997
+            ],
+            [
+              -75.68313,
+              4.817398
+            ],
+            [
+              -75.682272,
+              4.816607
+            ],
+            [
+              -75.681708,
+              4.816372
+            ],
+            [
+              -75.681784,
+              4.816265
+            ],
+            [
+              -75.681172,
+              4.815885
+            ],
+            [
+              -75.68085,
+              4.815484
+            ],
+            [
+              -75.679842,
+              4.814618
+            ],
+            [
+              -75.679783,
+              4.814019
+            ],
+            [
+              -75.679954,
+              4.813565
+            ],
+            [
+              -75.679241,
+              4.813079
+            ],
+            [
+              -75.678747,
+              4.81287
+            ],
+            [
+              -75.67783,
+              4.812811
+            ],
+            [
+              -75.677036,
+              4.812694
+            ],
+            [
+              -75.677363,
+              4.812304
+            ],
+            [
+              -75.676484,
+              4.811406
+            ],
+            [
+              -75.675958,
+              4.811812
+            ],
+            [
+              -75.674644,
+              4.811582
+            ],
+            [
+              -75.677218,
+              4.808952
+            ],
+            [
+              -75.678447,
+              4.809476
+            ],
+            [
+              -75.679595,
+              4.810203
+            ],
+            [
+              -75.680512,
+              4.811357
+            ],
+            [
+              -75.680931,
+              4.811512
+            ],
+            [
+              -75.680877,
+              4.811988
+            ],
+            [
+              -75.681708,
+              4.812389
+            ],
+            [
+              -75.681633,
+              4.812843
+            ],
+            [
+              -75.682561,
+              4.812902
+            ],
+            [
+              -75.683066,
+              4.813405
+            ],
+            [
+              -75.687223,
+              4.813913
+            ],
+            [
+              -75.687298,
+              4.813987
+            ],
+            [
+              -75.686483,
+              4.814704
+            ],
+            [
+              -75.683693,
+              4.814394
+            ],
+            [
+              -75.683452,
+              4.814527
+            ],
+            [
+              -75.683543,
+              4.814763
+            ],
+            [
+              -75.684841,
+              4.816302
+            ],
+            [
+              -75.685233,
+              4.816874
+            ],
+            [
+              -75.685635,
+              4.817403
+            ],
+            [
+              -75.68674,
+              4.817713
+            ],
+            [
+              -75.687395,
+              4.817847
+            ],
+            [
+              -75.687148,
+              4.818339
+            ],
+            [
+              -75.686719,
+              4.819082
+            ],
+            [
+              -75.685619,
+              4.818606
+            ]
+          ]
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "nivel": "cuadrante",
+        "code": "PR_ruta_2993_07",
+        "codigo": "PR_ruta_2993_07",
+        "city": "PR",
+        "ciudad": "PR",
+        "tipo": "PADRE",
+        "system": "RUTA",
+        "route_id": 2993,
+        "base_code": "PR_ruta_2993",
+        "dup_index": 7,
+        "route_name": "RUTA 2 CENTRO ALAMOS",
+        "id_ruta": 2993,
+        "ruta_publica": "RUTA 2 CENTRO ALAMOS",
+        "fillColor": "#AB63FA",
+        "fillOpacity": 0.35,
+        "weight": 2,
+        "color": "#000000"
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              -75.667273,
+              4.806012
+            ],
+            [
+              -75.668303,
+              4.803286
+            ],
+            [
+              -75.667037,
+              4.802676
+            ],
+            [
+              -75.666822,
+              4.803585
+            ],
+            [
+              -75.665202,
+              4.802826
+            ],
+            [
+              -75.664537,
+              4.80428
+            ],
+            [
+              -75.665964,
+              4.804708
+            ],
+            [
+              -75.667273,
+              4.806012
+            ]
+          ]
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "nivel": "cuadrante",
+        "codigo": "PR_ruta_3004_01",
+        "ciudad": "PR",
+        "id_ruta": 3004,
+        "tipo": "PADRE",
+        "tipo_cuadrante": "PAP",
+        "fillColor": "#AB63FA",
         "fillOpacity": 0.35,
         "weight": 2,
         "color": "#000000",
         "ruta_publica": "RUTA 5 DOSQ BADEA",
-        "code": "PR_ruta_2894_01",
+        "code": "PR_ruta_3004_01",
         "city": "PR",
         "system": "RUTA",
-        "route_id": 2894,
+        "route_id": 3004,
         "route_name": "RUTA 5 DOSQ BADEA",
-        "base_code": "PR_ruta_2894",
+        "base_code": "PR_ruta_3004",
         "dup_index": 1
       },
       "geometry": {
@@ -8355,22 +8546,22 @@
       "type": "Feature",
       "properties": {
         "nivel": "cuadrante",
-        "codigo": "PR_ruta_2894_03",
+        "codigo": "PR_ruta_3004_03",
         "ciudad": "PR",
-        "id_ruta": 2894,
+        "id_ruta": 3004,
         "tipo": "PADRE",
         "tipo_cuadrante": "PAP",
-        "fillColor": "#EF553B",
+        "fillColor": "#AB63FA",
         "fillOpacity": 0.35,
         "weight": 2,
         "color": "#000000",
         "ruta_publica": "RUTA 5 DOSQ BADEA",
-        "code": "PR_ruta_2894_03",
+        "code": "PR_ruta_3004_03",
         "city": "PR",
         "system": "RUTA",
-        "route_id": 2894,
+        "route_id": 3004,
         "route_name": "RUTA 5 DOSQ BADEA",
-        "base_code": "PR_ruta_2894",
+        "base_code": "PR_ruta_3004",
         "dup_index": 3
       },
       "geometry": {
@@ -8481,22 +8672,188 @@
       "type": "Feature",
       "properties": {
         "nivel": "cuadrante",
-        "codigo": "PR_ruta_2894_05",
+        "codigo": "PR_ruta_3004_04",
         "ciudad": "PR",
-        "id_ruta": 2894,
+        "id_ruta": 3004,
         "tipo": "PADRE",
         "tipo_cuadrante": "PAP",
-        "fillColor": "#EF553B",
+        "fillColor": "#AB63FA",
         "fillOpacity": 0.35,
         "weight": 2,
         "color": "#000000",
         "ruta_publica": "RUTA 5 DOSQ BADEA",
-        "code": "PR_ruta_2894_05",
+        "code": "PR_ruta_3004_04",
         "city": "PR",
         "system": "RUTA",
-        "route_id": 2894,
+        "route_id": 3004,
         "route_name": "RUTA 5 DOSQ BADEA",
-        "base_code": "PR_ruta_2894",
+        "base_code": "PR_ruta_3004",
+        "dup_index": 4
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              -75.675904,
+              4.838346
+            ],
+            [
+              -75.677562,
+              4.835968
+            ],
+            [
+              -75.677862,
+              4.836256
+            ],
+            [
+              -75.679069,
+              4.83484
+            ],
+            [
+              -75.678629,
+              4.834492
+            ],
+            [
+              -75.679107,
+              4.833819
+            ],
+            [
+              -75.679477,
+              4.833937
+            ],
+            [
+              -75.681161,
+              4.833557
+            ],
+            [
+              -75.680979,
+              4.83283
+            ],
+            [
+              -75.680528,
+              4.831985
+            ],
+            [
+              -75.681751,
+              4.830515
+            ],
+            [
+              -75.684391,
+              4.832349
+            ],
+            [
+              -75.685619,
+              4.832728
+            ],
+            [
+              -75.686123,
+              4.833616
+            ],
+            [
+              -75.687336,
+              4.834567
+            ],
+            [
+              -75.687271,
+              4.834835
+            ],
+            [
+              -75.685072,
+              4.834514
+            ],
+            [
+              -75.684257,
+              4.834701
+            ],
+            [
+              -75.684031,
+              4.834669
+            ],
+            [
+              -75.683554,
+              4.834674
+            ],
+            [
+              -75.683339,
+              4.834637
+            ],
+            [
+              -75.681354,
+              4.834209
+            ],
+            [
+              -75.681435,
+              4.834412
+            ],
+            [
+              -75.682604,
+              4.835
+            ],
+            [
+              -75.683146,
+              4.837219
+            ],
+            [
+              -75.68217,
+              4.837491
+            ],
+            [
+              -75.682079,
+              4.837422
+            ],
+            [
+              -75.681762,
+              4.836096
+            ],
+            [
+              -75.680791,
+              4.836331
+            ],
+            [
+              -75.681124,
+              4.837721
+            ],
+            [
+              -75.680239,
+              4.83809
+            ],
+            [
+              -75.678908,
+              4.838544
+            ],
+            [
+              -75.678227,
+              4.839961
+            ],
+            [
+              -75.675904,
+              4.838346
+            ]
+          ]
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "nivel": "cuadrante",
+        "codigo": "PR_ruta_3004_05",
+        "ciudad": "PR",
+        "id_ruta": 3004,
+        "tipo": "PADRE",
+        "tipo_cuadrante": "PAP",
+        "fillColor": "#AB63FA",
+        "fillOpacity": 0.35,
+        "weight": 2,
+        "color": "#000000",
+        "ruta_publica": "RUTA 5 DOSQ BADEA",
+        "code": "PR_ruta_3004_05",
+        "city": "PR",
+        "system": "RUTA",
+        "route_id": 3004,
+        "route_name": "RUTA 5 DOSQ BADEA",
+        "base_code": "PR_ruta_3004",
         "dup_index": 5
       },
       "geometry": {
@@ -8775,163 +9132,130 @@
       "type": "Feature",
       "properties": {
         "nivel": "cuadrante",
-        "codigo": "PR_ruta_2895_04",
+        "code": "PR_ruta_3008_98",
+        "codigo": "PR_ruta_3008_98",
+        "city": "PR",
         "ciudad": "PR",
-        "id_ruta": 2895,
         "tipo": "PADRE",
-        "tipo_cuadrante": "PAP",
-        "fillColor": "#E74C3C",
+        "system": "RUTA",
+        "route_id": 3008,
+        "base_code": "PR_ruta_3008",
+        "dup_index": 98,
+        "route_name": "APOYO GESTORES FRAILES",
+        "id_ruta": 3008,
+        "ruta_publica": "APOYO GESTORES FRAILES",
+        "fillColor": "#F46036",
         "fillOpacity": 0.35,
         "weight": 2,
-        "color": "#000000",
-        "ruta_publica": "RUTA 5 DOSQ BADEA",
-        "code": "PR_ruta_2895_04",
-        "city": "PR",
-        "system": "RUTA",
-        "route_id": 2895,
-        "route_name": "RUTA 5 DOSQ BADEA",
-        "base_code": "PR_ruta_2895",
-        "dup_index": 4
+        "color": "#000000"
       },
       "geometry": {
         "type": "Polygon",
         "coordinates": [
           [
             [
-              -75.675904,
-              4.838346
+              -75.658067,
+              4.8131
             ],
             [
-              -75.677562,
-              4.835968
+              -75.660696,
+              4.811796
             ],
             [
-              -75.677862,
-              4.836256
+              -75.661436,
+              4.811005
             ],
             [
-              -75.679069,
-              4.83484
+              -75.663089,
+              4.810352
             ],
             [
-              -75.678629,
-              4.834492
+              -75.663764,
+              4.810235
             ],
             [
-              -75.679107,
-              4.833819
+              -75.665438,
+              4.80939
             ],
             [
-              -75.679477,
-              4.833937
+              -75.667976,
+              4.809898
             ],
             [
-              -75.681161,
-              4.833557
+              -75.668812,
+              4.810481
             ],
             [
-              -75.680979,
-              4.83283
+              -75.669928,
+              4.810663
             ],
             [
-              -75.680528,
-              4.831985
+              -75.671682,
+              4.811689
             ],
             [
-              -75.681751,
-              4.830515
+              -75.672525,
+              4.812672
             ],
             [
-              -75.684391,
-              4.832349
+              -75.671843,
+              4.813768
             ],
             [
-              -75.685619,
-              4.832728
+              -75.671355,
+              4.814522
             ],
             [
-              -75.686123,
-              4.833616
+              -75.670105,
+              4.815238
             ],
             [
-              -75.687336,
-              4.834567
+              -75.669429,
+              4.815484
             ],
             [
-              -75.687271,
-              4.834835
+              -75.669118,
+              4.815473
             ],
             [
-              -75.685072,
-              4.834514
+              -75.668308,
+              4.814934
             ],
             [
-              -75.684257,
-              4.834701
+              -75.6679,
+              4.814239
             ],
             [
-              -75.684031,
-              4.834669
+              -75.666661,
+              4.814265
             ],
             [
-              -75.683554,
-              4.834674
+              -75.665781,
+              4.815292
             ],
             [
-              -75.683339,
-              4.834637
+              -75.662616,
+              4.815014
             ],
             [
-              -75.681354,
-              4.834209
+              -75.661329,
+              4.81542
             ],
             [
-              -75.681435,
-              4.834412
+              -75.660857,
+              4.81526
             ],
             [
-              -75.682604,
-              4.835
+              -75.659902,
+              4.814276
             ],
             [
-              -75.683146,
-              4.837219
+              -75.658625,
+              4.814019
             ],
             [
-              -75.68217,
-              4.837491
-            ],
-            [
-              -75.682079,
-              4.837422
-            ],
-            [
-              -75.681762,
-              4.836096
-            ],
-            [
-              -75.680791,
-              4.836331
-            ],
-            [
-              -75.681124,
-              4.837721
-            ],
-            [
-              -75.680239,
-              4.83809
-            ],
-            [
-              -75.678908,
-              4.838544
-            ],
-            [
-              -75.678227,
-              4.839961
-            ],
-            [
-              -75.675904,
-              4.838346
+              -75.658067,
+              4.8131
             ]
           ]
         ]
@@ -8941,9 +9265,9 @@
       "type": "Feature",
       "properties": {
         "nivel": "cuadrante",
-        "codigo": "PR_ruta_2983_01",
+        "codigo": "PR_ruta_3019_01",
         "ciudad": "PR",
-        "id_ruta": 2983,
+        "id_ruta": 3019,
         "tipo": "PADRE",
         "tipo_cuadrante": "PAP",
         "fillColor": "#2E91E5",
@@ -8951,12 +9275,12 @@
         "weight": 2,
         "color": "#000000",
         "ruta_publica": "RUTA 1 DOS Q",
-        "code": "PR_ruta_2983_01",
+        "code": "PR_ruta_3019_01",
         "city": "PR",
         "system": "RUTA",
-        "route_id": 2983,
+        "route_id": 3019,
         "route_name": "RUTA 1 DOS Q",
-        "base_code": "PR_ruta_2983",
+        "base_code": "PR_ruta_3019",
         "dup_index": 1
       },
       "geometry": {
@@ -9243,9 +9567,405 @@
       "type": "Feature",
       "properties": {
         "nivel": "cuadrante",
-        "codigo": "PR_ruta_2983_02",
+        "codigo": "PR_ruta_3019_02",
         "ciudad": "PR",
-        "id_ruta": 2983,
+        "id_ruta": 3019,
+        "tipo": "PADRE",
+        "tipo_cuadrante": "PAP",
+        "fillColor": "#2E91E5",
+        "fillOpacity": 0.35,
+        "weight": 2,
+        "color": "#000000",
+        "ruta_publica": "RUTA 1 DOS Q",
+        "code": "PR_ruta_3019_02",
+        "city": "PR",
+        "system": "RUTA",
+        "route_id": 3019,
+        "route_name": "RUTA 1 DOS Q",
+        "base_code": "PR_ruta_3019",
+        "dup_index": 2
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              -75.655573,
+              4.859257
+            ],
+            [
+              -75.655648,
+              4.859064
+            ],
+            [
+              -75.655745,
+              4.858888
+            ],
+            [
+              -75.655841,
+              4.858706
+            ],
+            [
+              -75.655863,
+              4.858428
+            ],
+            [
+              -75.655949,
+              4.858268
+            ],
+            [
+              -75.656147,
+              4.858166
+            ],
+            [
+              -75.65619,
+              4.857883
+            ],
+            [
+              -75.656222,
+              4.857696
+            ],
+            [
+              -75.656345,
+              4.857632
+            ],
+            [
+              -75.656431,
+              4.857536
+            ],
+            [
+              -75.656571,
+              4.85737
+            ],
+            [
+              -75.656769,
+              4.857194
+            ],
+            [
+              -75.65656,
+              4.856926
+            ],
+            [
+              -75.656276,
+              4.856718
+            ],
+            [
+              -75.655868,
+              4.856531
+            ],
+            [
+              -75.655686,
+              4.856424
+            ],
+            [
+              -75.655519,
+              4.856349
+            ],
+            [
+              -75.655391,
+              4.856403
+            ],
+            [
+              -75.655257,
+              4.856761
+            ],
+            [
+              -75.654307,
+              4.858102
+            ],
+            [
+              -75.655037,
+              4.858498
+            ],
+            [
+              -75.654747,
+              4.859209
+            ],
+            [
+              -75.655519,
+              4.859492
+            ],
+            [
+              -75.655573,
+              4.859257
+            ]
+          ]
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "nivel": "cuadrante",
+        "codigo": "PR_ruta_3019_03",
+        "ciudad": "PR",
+        "id_ruta": 3019,
+        "tipo": "PADRE",
+        "tipo_cuadrante": "PAP",
+        "fillColor": "#2E91E5",
+        "fillOpacity": 0.35,
+        "weight": 2,
+        "color": "#000000",
+        "ruta_publica": "RUTA 1 DOS Q",
+        "code": "PR_ruta_3019_03",
+        "city": "PR",
+        "system": "RUTA",
+        "route_id": 3019,
+        "route_name": "RUTA 1 DOS Q",
+        "base_code": "PR_ruta_3019",
+        "dup_index": 3
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              -75.652708,
+              4.852207
+            ],
+            [
+              -75.652955,
+              4.852415
+            ],
+            [
+              -75.653159,
+              4.852575
+            ],
+            [
+              -75.653266,
+              4.852682
+            ],
+            [
+              -75.653422,
+              4.852998
+            ],
+            [
+              -75.653717,
+              4.853046
+            ],
+            [
+              -75.653931,
+              4.853126
+            ],
+            [
+              -75.654066,
+              4.853244
+            ],
+            [
+              -75.654661,
+              4.852811
+            ],
+            [
+              -75.655369,
+              4.85226
+            ],
+            [
+              -75.655916,
+              4.852116
+            ],
+            [
+              -75.6567,
+              4.852201
+            ],
+            [
+              -75.657107,
+              4.852105
+            ],
+            [
+              -75.6573,
+              4.852036
+            ],
+            [
+              -75.657375,
+              4.851907
+            ],
+            [
+              -75.657762,
+              4.851838
+            ],
+            [
+              -75.659199,
+              4.849363
+            ],
+            [
+              -75.659049,
+              4.849235
+            ],
+            [
+              -75.658743,
+              4.847995
+            ],
+            [
+              -75.65892,
+              4.847578
+            ],
+            [
+              -75.659071,
+              4.847439
+            ],
+            [
+              -75.659242,
+              4.847209
+            ],
+            [
+              -75.659527,
+              4.846765
+            ],
+            [
+              -75.659875,
+              4.846519
+            ],
+            [
+              -75.660551,
+              4.845942
+            ],
+            [
+              -75.661093,
+              4.845723
+            ],
+            [
+              -75.6598,
+              4.845055
+            ],
+            [
+              -75.659602,
+              4.845188
+            ],
+            [
+              -75.659387,
+              4.84545
+            ],
+            [
+              -75.659114,
+              4.845648
+            ],
+            [
+              -75.658867,
+              4.845776
+            ],
+            [
+              -75.658427,
+              4.84591
+            ],
+            [
+              -75.65796,
+              4.84553
+            ],
+            [
+              -75.657097,
+              4.845931
+            ],
+            [
+              -75.656775,
+              4.846268
+            ],
+            [
+              -75.656689,
+              4.84638
+            ],
+            [
+              -75.656598,
+              4.846471
+            ],
+            [
+              -75.656431,
+              4.846509
+            ],
+            [
+              -75.655283,
+              4.846343
+            ],
+            [
+              -75.654677,
+              4.846263
+            ],
+            [
+              -75.653991,
+              4.846744
+            ],
+            [
+              -75.653089,
+              4.847332
+            ],
+            [
+              -75.653476,
+              4.84846
+            ],
+            [
+              -75.654253,
+              4.848604
+            ],
+            [
+              -75.654409,
+              4.848711
+            ],
+            [
+              -75.654479,
+              4.848828
+            ],
+            [
+              -75.654345,
+              4.848957
+            ],
+            [
+              -75.654221,
+              4.848967
+            ],
+            [
+              -75.653915,
+              4.848973
+            ],
+            [
+              -75.65362,
+              4.849005
+            ],
+            [
+              -75.653352,
+              4.849053
+            ],
+            [
+              -75.653084,
+              4.849165
+            ],
+            [
+              -75.652891,
+              4.84939
+            ],
+            [
+              -75.652086,
+              4.851015
+            ],
+            [
+              -75.65221,
+              4.851517
+            ],
+            [
+              -75.652317,
+              4.851693
+            ],
+            [
+              -75.652435,
+              4.851881
+            ],
+            [
+              -75.652526,
+              4.852052
+            ],
+            [
+              -75.652708,
+              4.852207
+            ]
+          ]
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "nivel": "cuadrante",
+        "codigo": "PR_ruta_3019_04",
+        "ciudad": "PR",
+        "id_ruta": 3019,
         "tipo": "PADRE",
         "tipo_cuadrante": "PAP",
         "fillColor": "#2E91E5",
@@ -9253,13 +9973,13 @@
         "weight": 2,
         "color": "#000000",
         "ruta_publica": "RUTA 5 DOSQ BADEA",
-        "code": "PR_ruta_2983_02",
+        "code": "PR_ruta_3019_04",
         "city": "PR",
         "system": "RUTA",
-        "route_id": 2983,
+        "route_id": 3019,
         "route_name": "RUTA 5 DOSQ BADEA",
-        "base_code": "PR_ruta_2983",
-        "dup_index": 2
+        "base_code": "PR_ruta_3019",
+        "dup_index": 4
       },
       "geometry": {
         "type": "Polygon",
@@ -9517,9 +10237,9 @@
       "type": "Feature",
       "properties": {
         "nivel": "cuadrante",
-        "codigo": "PR_ruta_2983_03",
+        "codigo": "PR_ruta_3019_05",
         "ciudad": "PR",
-        "id_ruta": 2983,
+        "id_ruta": 3019,
         "tipo": "PADRE",
         "tipo_cuadrante": "PAP",
         "fillColor": "#2E91E5",
@@ -9527,279 +10247,13 @@
         "weight": 2,
         "color": "#000000",
         "ruta_publica": "RUTA 1 DOS Q",
-        "code": "PR_ruta_2983_03",
+        "code": "PR_ruta_3019_05",
         "city": "PR",
         "system": "RUTA",
-        "route_id": 2983,
+        "route_id": 3019,
         "route_name": "RUTA 1 DOS Q",
-        "base_code": "PR_ruta_2983",
-        "dup_index": 3
-      },
-      "geometry": {
-        "type": "Polygon",
-        "coordinates": [
-          [
-            [
-              -75.652708,
-              4.852207
-            ],
-            [
-              -75.652955,
-              4.852415
-            ],
-            [
-              -75.653159,
-              4.852575
-            ],
-            [
-              -75.653266,
-              4.852682
-            ],
-            [
-              -75.653422,
-              4.852998
-            ],
-            [
-              -75.653717,
-              4.853046
-            ],
-            [
-              -75.653931,
-              4.853126
-            ],
-            [
-              -75.654066,
-              4.853244
-            ],
-            [
-              -75.654661,
-              4.852811
-            ],
-            [
-              -75.655369,
-              4.85226
-            ],
-            [
-              -75.655916,
-              4.852116
-            ],
-            [
-              -75.6567,
-              4.852201
-            ],
-            [
-              -75.657107,
-              4.852105
-            ],
-            [
-              -75.6573,
-              4.852036
-            ],
-            [
-              -75.657375,
-              4.851907
-            ],
-            [
-              -75.657762,
-              4.851838
-            ],
-            [
-              -75.659199,
-              4.849363
-            ],
-            [
-              -75.659049,
-              4.849235
-            ],
-            [
-              -75.658743,
-              4.847995
-            ],
-            [
-              -75.65892,
-              4.847578
-            ],
-            [
-              -75.659071,
-              4.847439
-            ],
-            [
-              -75.659242,
-              4.847209
-            ],
-            [
-              -75.659527,
-              4.846765
-            ],
-            [
-              -75.659875,
-              4.846519
-            ],
-            [
-              -75.660551,
-              4.845942
-            ],
-            [
-              -75.661093,
-              4.845723
-            ],
-            [
-              -75.6598,
-              4.845055
-            ],
-            [
-              -75.659602,
-              4.845188
-            ],
-            [
-              -75.659387,
-              4.84545
-            ],
-            [
-              -75.659114,
-              4.845648
-            ],
-            [
-              -75.658867,
-              4.845776
-            ],
-            [
-              -75.658427,
-              4.84591
-            ],
-            [
-              -75.65796,
-              4.84553
-            ],
-            [
-              -75.657097,
-              4.845931
-            ],
-            [
-              -75.656775,
-              4.846268
-            ],
-            [
-              -75.656689,
-              4.84638
-            ],
-            [
-              -75.656598,
-              4.846471
-            ],
-            [
-              -75.656431,
-              4.846509
-            ],
-            [
-              -75.655283,
-              4.846343
-            ],
-            [
-              -75.654677,
-              4.846263
-            ],
-            [
-              -75.653991,
-              4.846744
-            ],
-            [
-              -75.653089,
-              4.847332
-            ],
-            [
-              -75.653476,
-              4.84846
-            ],
-            [
-              -75.654253,
-              4.848604
-            ],
-            [
-              -75.654409,
-              4.848711
-            ],
-            [
-              -75.654479,
-              4.848828
-            ],
-            [
-              -75.654345,
-              4.848957
-            ],
-            [
-              -75.654221,
-              4.848967
-            ],
-            [
-              -75.653915,
-              4.848973
-            ],
-            [
-              -75.65362,
-              4.849005
-            ],
-            [
-              -75.653352,
-              4.849053
-            ],
-            [
-              -75.653084,
-              4.849165
-            ],
-            [
-              -75.652891,
-              4.84939
-            ],
-            [
-              -75.652086,
-              4.851015
-            ],
-            [
-              -75.65221,
-              4.851517
-            ],
-            [
-              -75.652317,
-              4.851693
-            ],
-            [
-              -75.652435,
-              4.851881
-            ],
-            [
-              -75.652526,
-              4.852052
-            ],
-            [
-              -75.652708,
-              4.852207
-            ]
-          ]
-        ]
-      }
-    },
-    {
-      "type": "Feature",
-      "properties": {
-        "nivel": "cuadrante",
-        "codigo": "PR_ruta_2983_04",
-        "ciudad": "PR",
-        "id_ruta": 2983,
-        "tipo": "PADRE",
-        "tipo_cuadrante": "PAP",
-        "fillColor": "#2E91E5",
-        "fillOpacity": 0.35,
-        "weight": 2,
-        "color": "#000000",
-        "ruta_publica": "RUTA 1 DOS Q",
-        "code": "PR_ruta_2983_04",
-        "city": "PR",
-        "system": "RUTA",
-        "route_id": 2983,
-        "route_name": "RUTA 1 DOS Q",
-        "base_code": "PR_ruta_2983",
-        "dup_index": 4
+        "base_code": "PR_ruta_3019",
+        "dup_index": 5
       },
       "geometry": {
         "type": "Polygon",
@@ -10017,9 +10471,9 @@
       "type": "Feature",
       "properties": {
         "nivel": "cuadrante",
-        "codigo": "PR_ruta_2983_05",
+        "codigo": "PR_ruta_3019_06",
         "ciudad": "PR",
-        "id_ruta": 2983,
+        "id_ruta": 3019,
         "tipo": "PADRE",
         "tipo_cuadrante": "RUTA",
         "fillColor": "#2E91E5",
@@ -10027,13 +10481,13 @@
         "weight": 2,
         "color": "#000000",
         "ruta_publica": "RUTA 1 DOS Q",
-        "code": "PR_ruta_2983_05",
+        "code": "PR_ruta_3019_06",
         "city": "PR",
         "system": "RUTA",
-        "route_id": 2983,
+        "route_id": 3019,
         "route_name": "RUTA 1 DOS Q",
-        "base_code": "PR_ruta_2983",
-        "dup_index": 5
+        "base_code": "PR_ruta_3019",
+        "dup_index": 6
       },
       "geometry": {
         "type": "Polygon",
@@ -10207,9 +10661,9 @@
       "type": "Feature",
       "properties": {
         "nivel": "cuadrante",
-        "codigo": "PR_ruta_2983_06",
+        "codigo": "PR_ruta_3019_07",
         "ciudad": "PR",
-        "id_ruta": 2983,
+        "id_ruta": 3019,
         "tipo": "PADRE",
         "tipo_cuadrante": "PAP",
         "fillColor": "#2E91E5",
@@ -10217,13 +10671,13 @@
         "weight": 2,
         "color": "#000000",
         "ruta_publica": "RUTA 1 DOS Q",
-        "code": "PR_ruta_2983_06",
+        "code": "PR_ruta_3019_07",
         "city": "PR",
         "system": "RUTA",
-        "route_id": 2983,
+        "route_id": 3019,
         "route_name": "RUTA 1 DOS Q",
-        "base_code": "PR_ruta_2983",
-        "dup_index": 6
+        "base_code": "PR_ruta_3019",
+        "dup_index": 7
       },
       "geometry": {
         "type": "Polygon",
@@ -10385,9 +10839,9 @@
       "type": "Feature",
       "properties": {
         "nivel": "cuadrante",
-        "codigo": "PR_ruta_2983_07",
+        "codigo": "PR_ruta_3019_08",
         "ciudad": "PR",
-        "id_ruta": 2983,
+        "id_ruta": 3019,
         "tipo": "PADRE",
         "tipo_cuadrante": "PAP",
         "fillColor": "#2E91E5",
@@ -10395,13 +10849,13 @@
         "weight": 2,
         "color": "#000000",
         "ruta_publica": "RUTA 1 DOS Q",
-        "code": "PR_ruta_2983_07",
+        "code": "PR_ruta_3019_08",
         "city": "PR",
         "system": "RUTA",
-        "route_id": 2983,
+        "route_id": 3019,
         "route_name": "RUTA 1 DOS Q",
-        "base_code": "PR_ruta_2983",
-        "dup_index": 7
+        "base_code": "PR_ruta_3019",
+        "dup_index": 8
       },
       "geometry": {
         "type": "Polygon",
@@ -10519,9 +10973,9 @@
       "type": "Feature",
       "properties": {
         "nivel": "cuadrante",
-        "codigo": "PR_ruta_2983_10",
+        "codigo": "PR_ruta_3019_09",
         "ciudad": "PR",
-        "id_ruta": 2983,
+        "id_ruta": 3019,
         "tipo": "PADRE",
         "tipo_cuadrante": "PAP",
         "fillColor": "#2E91E5",
@@ -10529,12 +10983,242 @@
         "weight": 2,
         "color": "#000000",
         "ruta_publica": "RUTA 1 DOS Q",
-        "code": "PR_ruta_2983_10",
+        "code": "PR_ruta_3019_09",
         "city": "PR",
         "system": "RUTA",
-        "route_id": 2983,
+        "route_id": 3019,
         "route_name": "RUTA 1 DOS Q",
-        "base_code": "PR_ruta_2983",
+        "base_code": "PR_ruta_3019",
+        "dup_index": 9
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              -75.675604,
+              4.816933
+            ],
+            [
+              -75.676172,
+              4.817478
+            ],
+            [
+              -75.676398,
+              4.81735
+            ],
+            [
+              -75.677224,
+              4.818141
+            ],
+            [
+              -75.677095,
+              4.818248
+            ],
+            [
+              -75.678205,
+              4.819071
+            ],
+            [
+              -75.67864,
+              4.818766
+            ],
+            [
+              -75.679058,
+              4.818643
+            ],
+            [
+              -75.680684,
+              4.820156
+            ],
+            [
+              -75.680652,
+              4.82053
+            ],
+            [
+              -75.680619,
+              4.822257
+            ],
+            [
+              -75.681403,
+              4.822385
+            ],
+            [
+              -75.681344,
+              4.823005
+            ],
+            [
+              -75.680882,
+              4.82339
+            ],
+            [
+              -75.680582,
+              4.823732
+            ],
+            [
+              -75.680137,
+              4.823465
+            ],
+            [
+              -75.680276,
+              4.823219
+            ],
+            [
+              -75.679874,
+              4.823171
+            ],
+            [
+              -75.679488,
+              4.823524
+            ],
+            [
+              -75.679386,
+              4.824577
+            ],
+            [
+              -75.678286,
+              4.824571
+            ],
+            [
+              -75.677567,
+              4.823909
+            ],
+            [
+              -75.676355,
+              4.822946
+            ],
+            [
+              -75.676103,
+              4.821947
+            ],
+            [
+              -75.675352,
+              4.82107
+            ],
+            [
+              -75.674971,
+              4.820594
+            ],
+            [
+              -75.673683,
+              4.818413
+            ],
+            [
+              -75.673855,
+              4.818371
+            ],
+            [
+              -75.674188,
+              4.817665
+            ],
+            [
+              -75.673292,
+              4.817115
+            ],
+            [
+              -75.672889,
+              4.817344
+            ],
+            [
+              -75.672417,
+              4.817248
+            ],
+            [
+              -75.67172,
+              4.817975
+            ],
+            [
+              -75.671371,
+              4.817724
+            ],
+            [
+              -75.671511,
+              4.817152
+            ],
+            [
+              -75.671811,
+              4.817259
+            ],
+            [
+              -75.671956,
+              4.817013
+            ],
+            [
+              -75.671516,
+              4.816831
+            ],
+            [
+              -75.671575,
+              4.816687
+            ],
+            [
+              -75.671698,
+              4.816703
+            ],
+            [
+              -75.672085,
+              4.816168
+            ],
+            [
+              -75.672315,
+              4.816291
+            ],
+            [
+              -75.672492,
+              4.815965
+            ],
+            [
+              -75.673206,
+              4.816281
+            ],
+            [
+              -75.673538,
+              4.816778
+            ],
+            [
+              -75.674445,
+              4.817104
+            ],
+            [
+              -75.674515,
+              4.817355
+            ],
+            [
+              -75.674665,
+              4.817211
+            ],
+            [
+              -75.674944,
+              4.817446
+            ],
+            [
+              -75.675604,
+              4.816933
+            ]
+          ]
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "nivel": "cuadrante",
+        "codigo": "PR_ruta_3019_10",
+        "ciudad": "PR",
+        "id_ruta": 3019,
+        "tipo": "PADRE",
+        "tipo_cuadrante": "PAP",
+        "fillColor": "#2E91E5",
+        "fillOpacity": 0.35,
+        "weight": 2,
+        "color": "#000000",
+        "ruta_publica": "RUTA 1 DOS Q",
+        "code": "PR_ruta_3019_10",
+        "city": "PR",
+        "system": "RUTA",
+        "route_id": 3019,
+        "route_name": "RUTA 1 DOS Q",
+        "base_code": "PR_ruta_3019",
         "dup_index": 10
       },
       "geometry": {
@@ -10809,696 +11493,12 @@
       "type": "Feature",
       "properties": {
         "nivel": "cuadrante",
-        "code": "PR_ruta_2983_98",
-        "codigo": "PR_ruta_2983_98",
-        "city": "PR",
-        "ciudad": "PR",
-        "tipo": "PADRE",
-        "system": "RUTA",
-        "route_id": 2983,
-        "base_code": "PR_ruta_2983",
-        "dup_index": 98,
-        "route_name": "APOYO GESTORES FRAILES",
-        "id_ruta": 2983,
-        "ruta_publica": "APOYO GESTORES FRAILES",
-        "fillColor": "#2E91E5",
-        "fillOpacity": 0.35,
-        "weight": 2,
-        "color": "#000000"
-      },
-      "geometry": {
-        "type": "Polygon",
-        "coordinates": [
-          [
-            [
-              -75.658067,
-              4.8131
-            ],
-            [
-              -75.660696,
-              4.811796
-            ],
-            [
-              -75.661436,
-              4.811005
-            ],
-            [
-              -75.663089,
-              4.810352
-            ],
-            [
-              -75.663764,
-              4.810235
-            ],
-            [
-              -75.665438,
-              4.80939
-            ],
-            [
-              -75.667976,
-              4.809898
-            ],
-            [
-              -75.668812,
-              4.810481
-            ],
-            [
-              -75.669928,
-              4.810663
-            ],
-            [
-              -75.671682,
-              4.811689
-            ],
-            [
-              -75.672525,
-              4.812672
-            ],
-            [
-              -75.671843,
-              4.813768
-            ],
-            [
-              -75.671355,
-              4.814522
-            ],
-            [
-              -75.670105,
-              4.815238
-            ],
-            [
-              -75.669429,
-              4.815484
-            ],
-            [
-              -75.669118,
-              4.815473
-            ],
-            [
-              -75.668308,
-              4.814934
-            ],
-            [
-              -75.6679,
-              4.814239
-            ],
-            [
-              -75.666661,
-              4.814265
-            ],
-            [
-              -75.665781,
-              4.815292
-            ],
-            [
-              -75.662616,
-              4.815014
-            ],
-            [
-              -75.661329,
-              4.81542
-            ],
-            [
-              -75.660857,
-              4.81526
-            ],
-            [
-              -75.659902,
-              4.814276
-            ],
-            [
-              -75.658625,
-              4.814019
-            ],
-            [
-              -75.658067,
-              4.8131
-            ]
-          ]
-        ]
-      }
-    },
-    {
-      "type": "Feature",
-      "properties": {
-        "nivel": "cuadrante",
-        "codigo": "PR_ruta_2993_01",
-        "ciudad": "PR",
-        "id_ruta": 2993,
-        "tipo": "PADRE",
-        "tipo_cuadrante": "PAP",
-        "fillColor": "#440E03",
-        "fillOpacity": 0.35,
-        "weight": 2,
-        "color": "#000000",
-        "ruta_publica": "Ruta 1",
-        "code": "PR_ruta_2993_01",
-        "city": "PR",
-        "system": "RUTA",
-        "route_id": 2993,
-        "route_name": "Ruta 1",
-        "base_code": "PR_ruta_2993",
-        "dup_index": 1
-      },
-      "geometry": {
-        "type": "Polygon",
-        "coordinates": [
-          [
-            [
-              -75.668346,
-              4.803286
-            ],
-            [
-              -75.670309,
-              4.804889
-            ],
-            [
-              -75.670899,
-              4.805435
-            ],
-            [
-              -75.671457,
-              4.804066
-            ],
-            [
-              -75.669944,
-              4.802986
-            ],
-            [
-              -75.67032,
-              4.801383
-            ],
-            [
-              -75.669451,
-              4.801693
-            ],
-            [
-              -75.66885,
-              4.800923
-            ],
-            [
-              -75.668807,
-              4.800228
-            ],
-            [
-              -75.668957,
-              4.799736
-            ],
-            [
-              -75.669644,
-              4.797138
-            ],
-            [
-              -75.66914,
-              4.797095
-            ],
-            [
-              -75.668796,
-              4.797373
-            ],
-            [
-              -75.668346,
-              4.797406
-            ],
-            [
-              -75.668099,
-              4.796336
-            ],
-            [
-              -75.66752,
-              4.796037
-            ],
-            [
-              -75.667294,
-              4.796379
-            ],
-            [
-              -75.667166,
-              4.796294
-            ],
-            [
-              -75.666093,
-              4.797406
-            ],
-            [
-              -75.665653,
-              4.797427
-            ],
-            [
-              -75.665588,
-              4.798528
-            ],
-            [
-              -75.664988,
-              4.798528
-            ],
-            [
-              -75.664977,
-              4.79918
-            ],
-            [
-              -75.66385,
-              4.798913
-            ],
-            [
-              -75.663936,
-              4.79979
-            ],
-            [
-              -75.66443,
-              4.800249
-            ],
-            [
-              -75.665385,
-              4.79995
-            ],
-            [
-              -75.666114,
-              4.800388
-            ],
-            [
-              -75.666801,
-              4.800837
-            ],
-            [
-              -75.667101,
-              4.801126
-            ],
-            [
-              -75.666661,
-              4.802056
-            ],
-            [
-              -75.667144,
-              4.802666
-            ],
-            [
-              -75.668346,
-              4.803286
-            ]
-          ]
-        ]
-      }
-    },
-    {
-      "type": "Feature",
-      "properties": {
-        "nivel": "cuadrante",
-        "codigo": "PR_ruta_2993_03",
-        "ciudad": "PR",
-        "id_ruta": 2993,
-        "tipo": "PADRE",
-        "tipo_cuadrante": "PAP",
-        "fillColor": "#440E03",
-        "fillOpacity": 0.35,
-        "weight": 2,
-        "color": "#000000",
-        "ruta_publica": "RUTA 2 CENTRO ALAMOS",
-        "code": "PR_ruta_2993_03",
-        "city": "PR",
-        "system": "RUTA",
-        "route_id": 2993,
-        "route_name": "RUTA 2 CENTRO ALAMOS",
-        "base_code": "PR_ruta_2993",
-        "dup_index": 3
-      },
-      "geometry": {
-        "type": "Polygon",
-        "coordinates": [
-          [
-            [
-              -75.687357,
-              4.813848
-            ],
-            [
-              -75.687491,
-              4.812838
-            ],
-            [
-              -75.686928,
-              4.812149
-            ],
-            [
-              -75.687625,
-              4.812229
-            ],
-            [
-              -75.687867,
-              4.810385
-            ],
-            [
-              -75.687937,
-              4.809647
-            ],
-            [
-              -75.686263,
-              4.80947
-            ],
-            [
-              -75.686306,
-              4.80892
-            ],
-            [
-              -75.685555,
-              4.808604
-            ],
-            [
-              -75.684702,
-              4.80838
-            ],
-            [
-              -75.683833,
-              4.808289
-            ],
-            [
-              -75.682197,
-              4.808065
-            ],
-            [
-              -75.681821,
-              4.806723
-            ],
-            [
-              -75.680566,
-              4.808246
-            ],
-            [
-              -75.678383,
-              4.808177
-            ],
-            [
-              -75.678425,
-              4.809444
-            ],
-            [
-              -75.679986,
-              4.810689
-            ],
-            [
-              -75.680931,
-              4.811475
-            ],
-            [
-              -75.680888,
-              4.811978
-            ],
-            [
-              -75.681708,
-              4.812378
-            ],
-            [
-              -75.681666,
-              4.812833
-            ],
-            [
-              -75.682529,
-              4.812876
-            ],
-            [
-              -75.683098,
-              4.813373
-            ],
-            [
-              -75.687357,
-              4.813848
-            ]
-          ]
-        ]
-      }
-    },
-    {
-      "type": "Feature",
-      "properties": {
-        "nivel": "cuadrante",
-        "codigo": "PR_ruta_2993_04",
-        "ciudad": "PR",
-        "id_ruta": 2993,
-        "tipo": "PADRE",
-        "tipo_cuadrante": "PAP",
-        "fillColor": "#440E03",
-        "fillOpacity": 0.35,
-        "weight": 2,
-        "color": "#000000",
-        "ruta_publica": "RUTA 2 CENTRO ALAMOS",
-        "code": "PR_ruta_2993_04",
-        "city": "PR",
-        "system": "RUTA",
-        "route_id": 2993,
-        "route_name": "RUTA 2 CENTRO ALAMOS",
-        "base_code": "PR_ruta_2993",
-        "dup_index": 4
-      },
-      "geometry": {
-        "type": "Polygon",
-        "coordinates": [
-          [
-            [
-              -75.685619,
-              4.818606
-            ],
-            [
-              -75.684214,
-              4.817997
-            ],
-            [
-              -75.68313,
-              4.817398
-            ],
-            [
-              -75.682272,
-              4.816607
-            ],
-            [
-              -75.681708,
-              4.816372
-            ],
-            [
-              -75.681784,
-              4.816265
-            ],
-            [
-              -75.681172,
-              4.815885
-            ],
-            [
-              -75.68085,
-              4.815484
-            ],
-            [
-              -75.679842,
-              4.814618
-            ],
-            [
-              -75.679783,
-              4.814019
-            ],
-            [
-              -75.679954,
-              4.813565
-            ],
-            [
-              -75.679241,
-              4.813079
-            ],
-            [
-              -75.678747,
-              4.81287
-            ],
-            [
-              -75.67783,
-              4.812811
-            ],
-            [
-              -75.677036,
-              4.812694
-            ],
-            [
-              -75.677363,
-              4.812304
-            ],
-            [
-              -75.676484,
-              4.811406
-            ],
-            [
-              -75.675958,
-              4.811812
-            ],
-            [
-              -75.674644,
-              4.811582
-            ],
-            [
-              -75.677218,
-              4.808952
-            ],
-            [
-              -75.678447,
-              4.809476
-            ],
-            [
-              -75.679595,
-              4.810203
-            ],
-            [
-              -75.680512,
-              4.811357
-            ],
-            [
-              -75.680931,
-              4.811512
-            ],
-            [
-              -75.680877,
-              4.811988
-            ],
-            [
-              -75.681708,
-              4.812389
-            ],
-            [
-              -75.681633,
-              4.812843
-            ],
-            [
-              -75.682561,
-              4.812902
-            ],
-            [
-              -75.683066,
-              4.813405
-            ],
-            [
-              -75.687223,
-              4.813913
-            ],
-            [
-              -75.687298,
-              4.813987
-            ],
-            [
-              -75.686483,
-              4.814704
-            ],
-            [
-              -75.683693,
-              4.814394
-            ],
-            [
-              -75.683452,
-              4.814527
-            ],
-            [
-              -75.683543,
-              4.814763
-            ],
-            [
-              -75.684841,
-              4.816302
-            ],
-            [
-              -75.685233,
-              4.816874
-            ],
-            [
-              -75.685635,
-              4.817403
-            ],
-            [
-              -75.68674,
-              4.817713
-            ],
-            [
-              -75.687395,
-              4.817847
-            ],
-            [
-              -75.687148,
-              4.818339
-            ],
-            [
-              -75.686719,
-              4.819082
-            ],
-            [
-              -75.685619,
-              4.818606
-            ]
-          ]
-        ]
-      }
-    },
-    {
-      "type": "Feature",
-      "properties": {
-        "nivel": "cuadrante",
-        "code": "PR_ruta_2993_07",
-        "codigo": "PR_ruta_2993_07",
-        "city": "PR",
-        "ciudad": "PR",
-        "tipo": "PADRE",
-        "system": "RUTA",
-        "route_id": 2993,
-        "base_code": "PR_ruta_2993",
-        "dup_index": 7,
-        "route_name": "RUTA 2 CENTRO ALAMOS",
-        "id_ruta": 2993,
-        "ruta_publica": "RUTA 2 CENTRO ALAMOS",
-        "fillColor": "#440E03",
-        "fillOpacity": 0.35,
-        "weight": 2,
-        "color": "#000000"
-      },
-      "geometry": {
-        "type": "Polygon",
-        "coordinates": [
-          [
-            [
-              -75.667273,
-              4.806012
-            ],
-            [
-              -75.668303,
-              4.803286
-            ],
-            [
-              -75.667037,
-              4.802676
-            ],
-            [
-              -75.666822,
-              4.803585
-            ],
-            [
-              -75.665202,
-              4.802826
-            ],
-            [
-              -75.664537,
-              4.80428
-            ],
-            [
-              -75.665964,
-              4.804708
-            ],
-            [
-              -75.667273,
-              4.806012
-            ]
-          ]
-        ]
-      }
-    },
-    {
-      "type": "Feature",
-      "properties": {
-        "nivel": "cuadrante",
         "codigo": "PR_ruta_790_01",
         "ciudad": "PR",
         "id_ruta": 790,
         "tipo": "PADRE",
         "tipo_cuadrante": "PAP",
-        "fillColor": "#FECB52",
+        "fillColor": "#FFA600",
         "fillOpacity": 0.35,
         "weight": 2,
         "color": "#000000",
@@ -11800,7 +11800,7 @@
         "id_ruta": 790,
         "tipo": "PADRE",
         "tipo_cuadrante": "PAP",
-        "fillColor": "#FECB52",
+        "fillColor": "#FFA600",
         "fillOpacity": 0.35,
         "weight": 2,
         "color": "#000000",
@@ -12221,7 +12221,7 @@
         "id_ruta": 790,
         "tipo": "PADRE",
         "tipo_cuadrante": "PAP",
-        "fillColor": "#FECB52",
+        "fillColor": "#FFA600",
         "fillOpacity": 0.35,
         "weight": 2,
         "color": "#000000",
@@ -12427,7 +12427,7 @@
         "id_ruta": 790,
         "tipo": "PADRE",
         "tipo_cuadrante": "RUTA",
-        "fillColor": "#FECB52",
+        "fillColor": "#FFA600",
         "fillOpacity": 0.35,
         "weight": 2,
         "color": "#000000",
