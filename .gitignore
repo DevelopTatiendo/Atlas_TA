@@ -70,7 +70,7 @@ pnpm-lock.yaml
 *.swo
 *.code-workspace
 .DS_Store
-Thumbs.db
+Thumbbs.db
 desktop.ini
 
 # =========================
@@ -126,3 +126,8 @@ scratch/
 # Contenedores
 docker-compose.override.yml
 
+# =========================
+# Claude / outputs locales
+# =========================
+# Carpeta de reportes y outputs generados por Claude (uso local, no versionar)
+Claude/
