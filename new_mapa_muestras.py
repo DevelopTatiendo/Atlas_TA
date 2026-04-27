@@ -1115,10 +1115,13 @@ def generar_mapa_muestras_visual(
         layer_hijo.add_to(cuadrantes_hijos_group)
 
     # Grupos de puntos
+    # NOTA: los puntos del mapa usan df_original (TODAS las muestras, incluyendo
+    # re-visitas al mismo cliente). Las métricas de la leyenda siguen calculadas
+    # sobre df_filtrado (cliente único por promotor, última muestra).
     legend_html = ""
     if agrupar_por == "Promotor":
         fg_promotores = folium.FeatureGroup(name="PROMOTORES", show=True).add_to(mapa)
-        grupos_por_promotor = dict(tuple(df_filtrado.groupby('id_promotor')))
+        grupos_por_promotor = dict(tuple(df_original.groupby('id_promotor')))
         promotores_ordenados = sorted(
             grupos_por_promotor.keys(),
             key=lambda pid: len(grupos_por_promotor[pid]),
@@ -1127,16 +1130,16 @@ def generar_mapa_muestras_visual(
         promotores_ordenados = [int(pid) for pid in promotores_ordenados]
         colores_promotores_map = {str(pid): color_for_promotor(centroope, pid) for pid in promotores_ordenados}
 
-        # legend_name_map desde df (apellido_promotor)
+        # legend_name_map desde df_original (apellido_promotor)
         legend_name_map = {}
-        if 'apellido_promotor' in df_filtrado.columns:
-            tmp = df_filtrado[["id_promotor", "apellido_promotor"]].dropna().drop_duplicates("id_promotor")
+        if 'apellido_promotor' in df_original.columns:
+            tmp = df_original[["id_promotor", "apellido_promotor"]].dropna().drop_duplicates("id_promotor")
             for _, r in tmp.iterrows():
                 pid = str(r['id_promotor'])
                 legend_name_map[pid] = compactar_dos_palabras(r['apellido_promotor'], pid)
 
         grupos_promotores = build_promotores_groups(
-            df_filtrado,
+            df_original,                        # todas las muestras en el mapa
             parent_group=fg_promotores,
             colores_promotores_map=colores_promotores_map,
             legend_name_map=legend_name_map,
@@ -1182,7 +1185,7 @@ def generar_mapa_muestras_visual(
 
     elif agrupar_por == "Mes":
         fg_mes = folium.FeatureGroup(name="MESES", show=True).add_to(mapa)
-        df_meswork = df_filtrado.copy()
+        df_meswork = df_original.copy()  # todas las muestras en el mapa
         if 'mes' not in df_meswork.columns and 'fecha_evento' in df_meswork.columns:
             df_meswork['mes'] = df_meswork['fecha_evento'].dt.month
         meses_presentes = (
@@ -1254,6 +1257,94 @@ def generar_mapa_muestras_visual(
                     pct_nofiel_contactable=float(r.get('pct_nofiel_contactable') or 0.0),
                 ))
         legend_html = _render_legend_html_muestras(rows_struct_mes, titulo="Métricas por mes (clientes únicos)", label_col="Mes")
+
+    # ── JS: cascade PROMOTORES checkbox → todos sus hijos ────────────────────
+    # Cuando el usuario desmarca "PROMOTORES" todos los sub-grupos individuales
+    # se desmarcan también, y viceversa. Funciona con TreeLayerControl y con
+    # el LayerControl estándar (estructura plana).
+    _cascade_js = """
+<script>
+(function(){
+    function taSetupCascade(){
+        var done = false;
+
+        /* ── TreeLayerControl (estructura anidada) ── */
+        document.querySelectorAll('.leaflet-layerstree-header').forEach(function(hdr){
+            var spans = hdr.querySelectorAll('span');
+            var txt = spans.length ? spans[spans.length-1].textContent.trim() : '';
+            if(txt.toUpperCase() !== 'PROMOTORES') return;
+            var parentCb = hdr.querySelector('input[type="checkbox"]');
+            var node = hdr.closest('.leaflet-layerstree-node');
+            var kids = node ? node.querySelector('.leaflet-layerstree-children') : null;
+            if(parentCb && kids && !parentCb.__taCascade){
+                parentCb.__taCascade = true;
+
+                /* Padre → hijos: desmarcar/marcar todos */
+                parentCb.addEventListener('change', function(e){
+                    var checked = e.target.checked;
+                    kids.querySelectorAll('input[type="checkbox"]').forEach(function(c){
+                        if(c.checked !== checked) c.click();
+                    });
+                });
+
+                /* Hijos → padre: activar padre si cualquier hijo se marca */
+                kids.querySelectorAll('input[type="checkbox"]').forEach(function(childCb){
+                    if(!childCb.__taParentLink){
+                        childCb.__taParentLink = true;
+                        childCb.addEventListener('change', function(e){
+                            if(e.target.checked && !parentCb.checked) parentCb.click();
+                        });
+                    }
+                });
+                done = true;
+            }
+        });
+        if(done) return;
+
+        /* ── LayerControl estándar (estructura plana) ── */
+        var overlays = document.querySelector('.leaflet-control-layers-overlays');
+        if(!overlays){ setTimeout(taSetupCascade, 400); return; }
+        var labels = Array.from(overlays.querySelectorAll('label'));
+        var promIdx = -1, promCb = null;
+        labels.forEach(function(lbl, i){
+            var spans = lbl.querySelectorAll('span');
+            var t = spans.length ? spans[spans.length-1].textContent.trim() : lbl.textContent.trim();
+            if(t.toUpperCase() === 'PROMOTORES' && promIdx === -1){
+                promIdx = i;
+                promCb = lbl.querySelector('input[type="checkbox"]');
+            }
+        });
+        if(promCb && !promCb.__taCascade){
+            promCb.__taCascade = true;
+
+            /* Padre → hijos */
+            promCb.addEventListener('change', function(e){
+                var checked = e.target.checked;
+                labels.slice(promIdx + 1).forEach(function(lbl){
+                    var c = lbl.querySelector('input[type="checkbox"]');
+                    if(c && c.checked !== checked) c.click();
+                });
+            });
+
+            /* Hijos → padre: activar padre al marcar cualquier hijo */
+            labels.slice(promIdx + 1).forEach(function(lbl){
+                var c = lbl.querySelector('input[type="checkbox"]');
+                if(c && !c.__taParentLink){
+                    c.__taParentLink = true;
+                    c.addEventListener('change', function(e){
+                        if(e.target.checked && !promCb.checked) promCb.click();
+                    });
+                }
+            });
+        } else if(promIdx === -1){
+            setTimeout(taSetupCascade, 400);
+        }
+    }
+    [200, 700, 1500].forEach(function(d){ setTimeout(taSetupCascade, d); });
+})();
+</script>
+"""
+    mapa.get_root().html.add_child(folium.Element(_cascade_js))
 
     # Insertar leyenda
     if legend_html:
