@@ -132,7 +132,7 @@ def consultar_metricas(
         df_filtrado = aplicar_contactabilidad_temporal(df_filtrado, df_llamadas)
 
     # Calcular métricas
-    df_agrupado = _calcular_metricas_agrupadas(df_filtrado, agrupacion="Promotor")
+    df_agrupado = _calcular_metricas_agrupadas(df, df_filtrado, agrupar_por="Promotor")
 
     # Serializar a lista de dicts
     cols_metricas = [
@@ -404,16 +404,4 @@ def listar_promotores_activos(
     if fecha_inicio is None or fecha_fin is None:
         fecha_inicio, fecha_fin = _fechas_por_defecto()
 
-    id_centroope, nombre_ciudad = _resolver_ciudad(ciudad)
-    df = listar_promotores(id_centroope, fecha_inicio, fecha_fin)
-
-    if df.empty:
-        return {"ciudad": nombre_ciudad, "periodo": f"{fecha_inicio} → {fecha_fin}",
-                "promotores": [], "n": 0}
-
-    return {
-        "ciudad": nombre_ciudad,
-        "periodo": f"{fecha_inicio} → {fecha_fin}",
-        "n": len(df),
-        "promotores": df.to_dict(orient="records"),
-    }
+    id_centroope, nombre_ciudad = _resolver_ciu
