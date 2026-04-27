@@ -20,6 +20,22 @@ from datetime import datetime
 
 from new_mapa_muestras import generar_mapa_muestras_visual
 
+# ── Excepciones internas de Streamlit que NO deben capturarse ─────────────────
+# Streamlit usa StopException para detener el script cuando el usuario presiona
+# "Stop" o cuando se produce un rerun. RuntimeStoppedError ocurre si llega un
+# mensaje mientras el runtime está terminando. Ambas deben relanzarse siempre.
+try:
+    from streamlit.runtime.scriptrunner.exceptions import StopException as _StopException
+except ImportError:
+    _StopException = None
+
+try:
+    from streamlit.runtime.runtime import RuntimeStoppedError as _RuntimeStoppedError
+except ImportError:
+    _RuntimeStoppedError = None
+
+_ST_STOP_EXC = tuple(e for e in [_StopException, _RuntimeStoppedError] if e is not None)
+
 # ── Entorno ───────────────────────────────────────────────────────────────────
 ENVIRONMENT  = os.getenv("ENVIRONMENT", "development")
 FLASK_SERVER = os.getenv("FLASK_SERVER_URL", "http://localhost:5000") \
@@ -39,8 +55,12 @@ logging.basicConfig(
 def manejar_error(funcion, *args, **kwargs):
     try:
         return funcion(*args, **kwargs)
+    except _ST_STOP_EXC:
+        # Detención normal de Streamlit (Stop / rerun): relanzar siempre
+        raise
     except Exception as e:
-        logging.error(f"Error en {funcion.__name__}: {str(e)}")
+        # logging.exception registra el traceback completo → facilita depuración
+        logging.exception(f"Error en {funcion.__name__}")
         st.error(f"❌ Ocurrió un error en {funcion.__name__}. Revisa los logs.")
         return None
 
@@ -246,8 +266,10 @@ if submit_button:
             st.session_state["muestras_export_df"]     = None
             st.session_state["muestras_export_meta"]   = None
 
-    except Exception as e:
-        logging.error(f"Error inesperado: {str(e)}")
+    except _ST_STOP_EXC:
+        raise  # dejar que Streamlit gestione su propia detención
+    except Exception:
+        logging.exception("Error inesperado en submit")
         st.error("⚠️ Se produjo un error inesperado. Revisa los logs.")
         st.session_state["map_url"]               = None
         st.session_state["muestras_last_filename"] = None

@@ -34,7 +34,7 @@ COLUMNAS_ESTANDAR = [
     "mes",
 ]
 
-@st.cache_data(ttl=1800, show_spinner=False)
+@st.cache_data(ttl=1800, show_spinner="Cargando promotores...", max_entries=20)
 def listar_promotores(id_centroope: int, fecha_inicio: str, fecha_fin: str) -> pd.DataFrame:
     """Lista promotores (cargo=39) con actividad en el rango y centro dados.
 
@@ -77,7 +77,7 @@ def listar_promotores(id_centroope: int, fecha_inicio: str, fecha_fin: str) -> p
     if "apellido_promotor" in df.columns:
         df["apellido_promotor"] = df["apellido_promotor"].fillna("").astype(str)
     return df[[c for c in ["id_promotor", "apellido_promotor"] if c in df.columns]].dropna(subset=["id_promotor"]).drop_duplicates("id_promotor").reset_index(drop=True)
-@st.cache_data(ttl=1800, show_spinner=False)
+@st.cache_data(ttl=1800, show_spinner="Consultando base de datos...", max_entries=10)
 def consultar_db(
     id_centroope: int,
     fecha_inicio: str,

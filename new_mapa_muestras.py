@@ -42,6 +42,9 @@ from mapa_consultores import _es_cuadrante_padre, _es_cuadrante_hijo, _style_cua
 # Conjunto de categorías fieles (cliente NO es "no fiel")
 CATEGORIAS_FIELES = {1, 40, 41, 43}
 
+# Mínimo de muestras por promotor para aparecer en el mapa y métricas
+MIN_MUESTRAS_PROMOTOR: int = 3
+
 # Mapeo ciudad -> centroope (copiado del flujo legacy)
 CENTROOPES = {
     'CALI': 2,
@@ -768,6 +771,15 @@ def generar_mapa_muestras(
     # 2. fecha_dia para df_original (puede requerirse en agrupados)
     if 'fecha_evento' in df_original.columns:
         df_original['fecha_dia'] = df_original['fecha_evento'].dt.date
+
+    # 2b. Excluir promotores con menos de MIN_MUESTRAS_PROMOTOR muestras
+    #     Se cuenta sobre df_original (todas las muestras, sin deduplicar).
+    conteo_por_promotor = df_original.groupby('id_promotor', observed=True).size()
+    promotores_validos  = conteo_por_promotor[conteo_por_promotor >= MIN_MUESTRAS_PROMOTOR].index
+    df_original = df_original[df_original['id_promotor'].isin(promotores_validos)].copy()
+
+    if df_original.empty:
+        return df_original, df_original.copy(), pd.DataFrame()
 
     # 3. Construir df_filtrado (modo clientes: última muestra por promotor-contacto)
     df_filtrado = (
