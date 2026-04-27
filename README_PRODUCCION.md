@@ -31,14 +31,14 @@ Los dos procesos deben correr simultáneamente. Streamlit genera el mapa Folium 
 Atlas_TA/
 ├── app.py                          # Streamlit — entrada principal
 ├── flask_server.py                 # Flask — servidor de mapas HTML
-├── new_mapa_muestras.py            # Lógica de generación del mapa y métricas
+├── mapa_muestras.py                # Lógica de generación del mapa y métricas
 ├── mapa_consultores.py             # Mapa de consultores (flujo legacy)
 ├── config/
 │   ├── secrets_manager.py          # Carga segura de variables de entorno
 │   ├── .env                        # Variables en texto plano (desarrollo)
 │   └── .env.enc                    # Variables cifradas (producción)
 ├── pre_procesamiento/
-│   ├── new_preprocesamiento_muestras.py  # Consultas SQL + normalización + contactabilidad
+│   ├── preprocesamiento_muestras.py      # Consultas SQL + normalización + contactabilidad
 │   ├── metricas_areas.py           # Cálculo de áreas geoespaciales (joblib)
 │   └── db_utils.py                 # Helper de lectura SQL (SQLAlchemy)
 ├── utils/
@@ -295,3 +295,4 @@ El caché se invalida automáticamente al cambiar ciudad (limpieza de `session_s
 
 11. **Dashboard comparativo entre ciudades**
     Vista agregada que muestre las métricas de las 7 ciudades en una sola tabla para benchmarking nacional.
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               

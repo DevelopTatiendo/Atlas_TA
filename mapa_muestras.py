@@ -1,7 +1,7 @@
-"""Nueva lógica de mapa de muestras (Fase 2 sin Folium).
+"""Lógica de mapa de muestras.
 
 Esta versión:
- - Obtiene datos vía new_preprocesamiento_muestras.consultar_db
+ - Obtiene datos vía preprocesamiento_muestras.consultar_db
  - Normaliza con crear_df
  - Construye:
       df_original  (todas las muestras válidas)
@@ -31,7 +31,7 @@ from shapely.geometry import shape, Point
 from shapely.prepared import prep
 from pyproj import Geod
 
-from pre_procesamiento.new_preprocesamiento_muestras import (
+from pre_procesamiento.preprocesamiento_muestras import (
     consultar_db,
     crear_df,
     consultar_llamadas_raw,
