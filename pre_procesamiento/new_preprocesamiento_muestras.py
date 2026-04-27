@@ -10,6 +10,7 @@ No calcula métricas, no agrupa, no deduplica. Preparación básica de datos.
 from __future__ import annotations
 
 import pandas as pd
+import streamlit as st
 from typing import List, Optional
 import unicodedata
 from .db_utils import sql_read  # Reutilizamos helper existente de lectura SQL
@@ -33,12 +34,15 @@ COLUMNAS_ESTANDAR = [
     "mes",
 ]
 
+@st.cache_data(ttl=1800, show_spinner=False)
 def listar_promotores(id_centroope: int, fecha_inicio: str, fecha_fin: str) -> pd.DataFrame:
     """Lista promotores (cargo=39) con actividad en el rango y centro dados.
 
     Retorna columnas estándar para UI:
       - id_promotor (int)
       - apellido_promotor (str)
+
+    Resultados cacheados por Streamlit durante 30 minutos (ttl=1800).
     """
     query = (
         """
@@ -73,16 +77,23 @@ def listar_promotores(id_centroope: int, fecha_inicio: str, fecha_fin: str) -> p
     if "apellido_promotor" in df.columns:
         df["apellido_promotor"] = df["apellido_promotor"].fillna("").astype(str)
     return df[[c for c in ["id_promotor", "apellido_promotor"] if c in df.columns]].dropna(subset=["id_promotor"]).drop_duplicates("id_promotor").reset_index(drop=True)
+@st.cache_data(ttl=1800, show_spinner=False)
 def consultar_db(
     id_centroope: int,
     fecha_inicio: str,
     fecha_fin: str,
-    ids_promotor: Optional[List[int]] = None,
+    ids_promotor: Optional[tuple] = None,
 ) -> pd.DataFrame:
     """Ejecuta una consulta única para eventos de muestras.
 
     Retorna DataFrame crudo con las columnas solicitadas. Si no hay filas,
     devuelve DataFrame vacío con las columnas esperadas.
+
+    Args:
+        ids_promotor: tuple de ints (no List) — requerido por @st.cache_data
+                      para que el argumento sea hashable. Pasar como:
+                      tuple(ids) o None.
+    Resultados cacheados por Streamlit durante 30 minutos (ttl=1800).
     """
     query = (
         """
@@ -122,7 +133,7 @@ def consultar_db(
         "id_centroope": id_centroope,
     }
 
-    # Filtro opcional por lista de promotores
+    # Filtro opcional por tuple de promotores
     if ids_promotor:
         ids_promotor_limpios = [int(x) for x in ids_promotor if str(x).strip()]
         if ids_promotor_limpios:
@@ -216,3 +227,8 @@ def crear_df(df_raw: pd.DataFrame) -> pd.DataFrame:
 
 
 __all__ = ["consultar_db", "crear_df", "COLUMNAS_ESTANDAR", "listar_promotores"]
+
+# NOTA DE USO: consultar_db ahora recibe ids_promotor como tuple (no list).
+# Ejemplo de llamada correcta:
+#   consultar_db(id_centroope=2, fecha_inicio="2024-01-01", fecha_fin="2024-12-31",
+#                ids_promotor=tuple(ids) if ids else None)
