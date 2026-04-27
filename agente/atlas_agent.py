@@ -302,10 +302,6 @@ class AtlasAgent:
                 return f"[stop_reason inesperado: {respuesta.stop_reason}]"
 
     def limpiar_historial(self):
-        """Reinicia la conversación."""
+        """Limpia el historial para empezar una conversación nueva."""
         self._historial = []
-
-    @property
-    def n_turnos(self) -> int:
-        """Número de turnos en el historial actual."""
-        return len([m for m in self._historial if m["role"] == "user"])
+        print("[Atlas Agent] Historial limpiado.")

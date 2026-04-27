@@ -136,20 +136,23 @@ def consultar_metricas(
 
     # Serializar a lista de dicts
     cols_metricas = [
-        "nombre_promotor", "id_promotor",
+        "apellido_promotor", "id_promotor",
         "muestras_total", "clientes_total",
-        "pct_nofiel", "pct_contactabilidad",
+        "pct_clientes_no_fieles", "pct_total_muestras_contactables",
         "pct_nofiel_contactable", "pct_conversion",
     ]
     cols_presentes = [c for c in cols_metricas if c in df_agrupado.columns]
     promotores_list = df_agrupado[cols_presentes].to_dict(orient="records")
 
     # Resumen agregado
+    def _mean(col):
+        return df_agrupado[col].mean() if col in df_agrupado.columns else None
+
     n_promotores = len(promotores_list)
     total_clientes = df_agrupado["clientes_total"].sum() if "clientes_total" in df_agrupado.columns else 0
-    prom_contactabilidad = df_agrupado["pct_contactabilidad"].mean() if "pct_contactabilidad" in df_agrupado.columns else None
-    prom_captacion = df_agrupado["pct_nofiel_contactable"].mean() if "pct_nofiel_contactable" in df_agrupado.columns else None
-    prom_conversion = df_agrupado["pct_conversion"].mean() if "pct_conversion" in df_agrupado.columns else None
+    prom_contactabilidad = _mean("pct_total_muestras_contactables")
+    prom_captacion       = _mean("pct_nofiel_contactable")
+    prom_conversion      = _mean("pct_conversion")
 
     return {
         "ciudad": nombre_ciudad,
@@ -189,18 +192,19 @@ def generar_mapa(
     if fecha_inicio is None or fecha_fin is None:
         fecha_inicio, fecha_fin = _fechas_por_defecto()
 
-    id_centroope, nombre_ciudad = _resolver_ciudad(ciudad)
+    _, nombre_ciudad = _resolver_ciudad(ciudad)
 
-    resultado = generar_mapa_muestras_visual(
-        id_centroope=id_centroope,
+    # generar_mapa_muestras_visual devuelve (filename, n_puntos, df_csv)
+    # filename es solo el nombre del archivo, no la ruta completa
+    filename, n_puntos, df_csv = generar_mapa_muestras_visual(
         fecha_inicio=fecha_inicio,
         fecha_fin=fecha_fin,
-        agrupacion=agrupacion,
+        ciudad=ciudad,
+        agrupar_por=agrupacion,
     )
 
-    # generar_mapa_muestras_visual devuelve dict con 'html_path', 'df_agrupado', etc.
-    html_path = resultado.get("html_path", "")
-    df_ag = resultado.get("df_agrupado", pd.DataFrame())
+    # Construir ruta completa: static/maps/<filename>
+    html_path = str(_ROOT / "static" / "maps" / filename) if filename else ""
 
     return {
         "ciudad": nombre_ciudad,
@@ -208,8 +212,9 @@ def generar_mapa(
         "agrupacion": agrupacion,
         "html_path": html_path,
         "html_existe": os.path.exists(html_path) if html_path else False,
-        "n_promotores": len(df_ag) if not df_ag.empty else 0,
-        "n_clientes": int(df_ag["clientes_total"].sum()) if "clientes_total" in df_ag.columns else 0,
+        "n_puntos": n_puntos,
+        "n_promotores": 0,
+        "n_clientes": 0,
     }
 
 
@@ -404,4 +409,13 @@ def listar_promotores_activos(
     if fecha_inicio is None or fecha_fin is None:
         fecha_inicio, fecha_fin = _fechas_por_defecto()
 
-    id_centroope, nombre_ciudad = _resolver_ciu
+    id_centroope, nombre_ciudad = _resolver_ciudad(ciudad)
+
+    promotores = listar_promotores(id_centroope, fecha_inicio, fecha_fin)
+
+    return {
+        "ciudad": nombre_ciudad,
+        "periodo": f"{fecha_inicio} → {fecha_fin}",
+        "promotores": promotores,
+        "n_promotores": len(promotores),
+    }

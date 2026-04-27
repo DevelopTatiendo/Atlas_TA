@@ -146,9 +146,7 @@ def generar_reporte_operacion(
     doc.add_heading("Métricas por promotor", level=1)
 
     if promotores:
-        cols = ["nombre_promotor", "clientes_total", "pct_contactabilidad",
-                "pct_nofiel_contactable", "pct_conversion"]
-        headers = ["Promotor", "Clientes", "% Contactab.", "% Captación", "% Conversión"]
+        headers = ["Promotor", "Clientes", "% Contactab.", "% No Fieles", "% Captación", "% Conversión"]
 
         tabla = doc.add_table(rows=1, cols=len(headers))
         tabla.style = "Table Grid"
@@ -162,12 +160,18 @@ def generar_reporte_operacion(
             cell.paragraphs[0].runs[0].font.color.rgb = RGBColor(0xFF, 0xFF, 0xFF)
 
         # Filas
+        pct_cols = [
+            "pct_total_muestras_contactables",
+            "pct_clientes_no_fieles",
+            "pct_nofiel_contactable",
+            "pct_conversion",
+        ]
         for p in promotores:
             row = tabla.add_row().cells
-            row[0].text = str(p.get("nombre_promotor", ""))
+            row[0].text = str(p.get("apellido_promotor", ""))
             row[1].text = str(p.get("clientes_total", ""))
 
-            for j, col in enumerate(["pct_contactabilidad", "pct_nofiel_contactable", "pct_conversion"]):
+            for j, col in enumerate(pct_cols):
                 val = p.get(col)
                 row[j + 2].text = f"{val:.1f}%" if val is not None else "—"
                 _color_celda(row[j + 2], _pct_color(val))
@@ -178,6 +182,5 @@ def generar_reporte_operacion(
     filename = f"Reporte_{nombre_ciudad}_{fecha_tag}.docx"
     out_path = str(Path(output_dir) / filename)
     doc.save(out_path)
-
-    print(f"[reporte] Guardado: {out_path}")
+    print(f"[reporte] Guardado → {out_path}")
     return out_path
