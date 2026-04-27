@@ -1,7 +1,7 @@
-"""Nueva lógica de mapa de muestras (Fase 2 sin Folium).
+"""Lógica de mapa de muestras.
 
 Esta versión:
- - Obtiene datos vía new_preprocesamiento_muestras.consultar_db
+ - Obtiene datos vía preprocesamiento_muestras.consultar_db
  - Normaliza con crear_df
  - Construye:
       df_original  (todas las muestras válidas)
@@ -31,16 +31,36 @@ from shapely.geometry import shape, Point
 from shapely.prepared import prep
 from pyproj import Geod
 
-from pre_procesamiento.new_preprocesamiento_muestras import (
+from pre_procesamiento.preprocesamiento_muestras import (
     consultar_db,
     crear_df,
+    consultar_llamadas_raw,
+    aplicar_contactabilidad_temporal,
 )
 from pre_procesamiento.metricas_areas import areas_muestras_resumen
 from utils.gestor_mapas import guardar_mapa_controlado
 from mapa_consultores import _es_cuadrante_padre, _es_cuadrante_hijo, _style_cuadrante
 
-# Conjunto de categorías fieles (cliente NO es "no fiel")
-CATEGORIAS_FIELES = {1, 40, 41, 43}
+# Catálogo completo de id_contacto_categoria
+# 1  BRONCE                      2  VETADOS                3  PROVEEDOR
+# 10 RECUPERACION                12 EMPLEADOS              17 MANEJO ESPECIAL
+# 20 ZONA RESTRINGIDA            22 CLIENTE ESPECIAL       29 CLIENTE DIGITAL
+# 30 INCONTACTABLE               31 SACAR DEL SISTEMA      36 INACTIVOS
+# 37 PROBLEMA DE COBRO           38 CLIENTE PERDIDO        39 TIPIFICACION SACAR DEL SISTEMA
+# 40 ORO                         41 DIAMANTE               42 TRANSICION FRECUENTE
+# 43 PLATA                       44 PORTAL WEB             46 CLIENTES POTENCIALES
+# 49 ZAGUS                       50 PRIVILEGIOS BOLIVAR 1  53 TIENDAS
+# 54 CAVASA                      55 CLIENTE ESPECIAL FRECUENTE
+# 56 CLIENTE ESPECIAL NO FRECUENTE  57 TRANSICION NO FRECUENTE
+# 58 TICKET BAJO                 59 TICKET MEDIO           60 TICKET ALTO
+# 61 SUSCRIPTORES FULLIMP
+
+# Fieles = Tickets (58-60) + Frecuentes (42, 55)
+# Un cliente es NO FIEL si su categoría NO está en este conjunto.
+CATEGORIAS_FIELES = {42, 55, 58, 59, 60}
+
+# Mínimo de muestras por promotor para aparecer en el mapa y métricas
+MIN_MUESTRAS_PROMOTOR: int = 3
 
 # Mapeo ciudad -> centroope (copiado del flujo legacy)
 CENTROOPES = {
@@ -224,6 +244,8 @@ def _build_legend_row_struct(
     muestras_por_km2: float | None = None,
     muestras_por_dia_habil: float | None = None,
     color_hex: str | None = None,
+    pct_conversion: float = 0.0,
+    pct_nofiel_contactable: float = 0.0,
 ):
     import pandas as _pd
     return {
@@ -238,6 +260,9 @@ def _build_legend_row_struct(
         "muestras_por_km2": float(muestras_por_km2) if (muestras_por_km2 is not None and _pd.notna(muestras_por_km2)) else None,
         "muestras_por_dia_habil": float(muestras_por_dia_habil) if (muestras_por_dia_habil is not None and _pd.notna(muestras_por_dia_habil)) else None,
         "color_hex": color_hex,
+        "pct_conversion": float(pct_conversion) if _pd.notna(pct_conversion) else 0.0,
+        # % de clientes totales que son NO fieles Y fueron contactados (captación efectiva)
+        "pct_nofiel_contactable": float(pct_nofiel_contactable) if _pd.notna(pct_nofiel_contactable) else 0.0,
     }
 
 
@@ -289,6 +314,8 @@ def _render_legend_html_muestras(lista_structs: list[dict], titulo: str, label_c
             <td style='padding:6px 8px;text-align:right;'>{_fmt_pct(r['pct_no_fieles'])}</td>
             <td style='padding:6px 8px;text-align:right;'>{_fmt_pct(r['pct_contactables'])}</td>
             <td style='padding:6px 8px;text-align:right;'>{_fmt_pct(r['pct_contactables_nofieles'])}</td>
+            <td style='padding:6px 8px;text-align:right;'>{_fmt_pct(r.get('pct_nofiel_contactable', 0))}</td>
+            <td style='padding:6px 8px;text-align:right;'>{_fmt_pct(r.get('pct_conversion', 0))}</td>
         </tr>
         """)
     return f"""
@@ -303,14 +330,16 @@ def _render_legend_html_muestras(lista_structs: list[dict], titulo: str, label_c
             <thead>
               <tr>
                 <th style='text-align:left; padding:6px 8px; border-bottom:1px solid #eee;'>{label_col}</th>
-                <th style='text-align:right; padding:6px 8px; border-bottom:1px solid #eee;' title='# total de muestras' data-type='num'>#Muestras</th>
-                <th style='text-align:right; padding:6px 8px; border-bottom:1px solid #eee;' title='# de clientes únicos' data-type='num'>#Clientes</th>
-                <th style='text-align:center; padding:6px 4px; border-bottom:1px solid #eee;' data-type='num'>Área km²</th>
-                <th style='text-align:center; padding:6px 4px; border-bottom:1px solid #eee;' data-type='num'>Clientes/km²</th>
-                <th style='text-align:right; padding:6px 8px; border-bottom:1px solid #eee;' title='Promedio entero de muestras por día hábil' data-type='num'>Clientes/día hábil</th>
-                <th style='text-align:right; padding:6px 8px; border-bottom:1px solid #eee;' data-type='percent'>% Clientes NO fieles</th>
-                <th style='text-align:right; padding:6px 8px; border-bottom:1px solid #eee;' data-type='percent'>% Total Clientes contactables</th>
-                <th style='text-align:right; padding:6px 8px; border-bottom:1px solid #eee;' title='contactables_no_fieles / muestras_total × 100' data-type='percent'>% Contactabilidad No Fieles</th>
+                <th style='text-align:right; padding:6px 8px; border-bottom:1px solid #eee;' title='Cantidad total de visitas registradas en el período, incluyendo re-visitas al mismo cliente' data-type='num'>#Muestras</th>
+                <th style='text-align:right; padding:6px 8px; border-bottom:1px solid #eee;' title='Personas distintas visitadas. Si el mismo cliente recibió varias muestras, se cuenta una sola vez (la más reciente). Todas las métricas se calculan sobre este número.' data-type='num'>#Clientes</th>
+                <th style='text-align:center; padding:6px 4px; border-bottom:1px solid #eee;' title='Tamaño del territorio cubierto, calculado a partir de los puntos GPS registrados' data-type='num'>Área km²</th>
+                <th style='text-align:center; padding:6px 4px; border-bottom:1px solid #eee;' title='Qué tan concentrado está el trabajo en el territorio. Un número alto indica rutas más eficientes.' data-type='num'>Clientes/km²</th>
+                <th style='text-align:right; padding:6px 8px; border-bottom:1px solid #eee;' title='Promedio de clientes visitados en los días donde hubo al menos 2 registros (días de operación real)' data-type='num'>Clientes/día hábil</th>
+                <th style='text-align:right; padding:6px 8px; border-bottom:1px solid #eee;' title='Clientes que aún no tienen relación activa con la empresa (no son Ticket, Frecuente ni Especial). Son el público objetivo de la muestra.' data-type='percent'>% No fieles</th>
+                <th style='text-align:right; padding:6px 8px; border-bottom:1px solid #eee;' title='De todos los clientes visitados, cuántos contestaron al menos una llamada después de recibir la muestra. Solo cuentan llamadas posteriores a la fecha de visita.' data-type='percent'>% Contactabilidad</th>
+                <th style='text-align:right; padding:6px 8px; border-bottom:1px solid #eee;' title='De los clientes nuevos (no fieles) que visité, cuántos contestaron el teléfono después de la muestra. Mide qué tan alcanzable es ese segmento para telemercadeo.' data-type='percent'>% Contactab. No Fieles</th>
+                <th style='text-align:right; padding:6px 8px; border-bottom:1px solid #eee;' title='De los  clientes cuántos son nuevos Y además contestaron. Es la tasa de captación ' data-type='percent'>% Captación</th>
+                <th style='text-align:right; padding:6px 8px; border-bottom:1px solid #eee;' title='De los clientes que contestaron después de la muestra, cuántos terminaron comprando. Mide qué tan efectivo fue el cierre de telemercadeo una vez logrado el contacto.' data-type='percent'>% Conversión</th>
               </tr>
             </thead>
             <tbody>
@@ -380,17 +409,21 @@ def build_promotores_groups(
         if mapa is not None:
             mapa.add_child(sg)
 
-        for _, row in datos_promotor.iterrows():
-            lat = row.get('coordenada_latitud', row.get('latitud', None))
-            lng = row.get('coordenada_longitud', row.get('longitud', None))
-            if lat is None or lng is None or pd.isna(lat) or pd.isna(lng):
-                continue
-            popup_text = f"""
-            <b>Promotor:</b> {nombre_promotor}<br>
-            <b>ID:</b> {pid}<br>
-            <b>Contacto:</b> {row.get('id_contacto', '-') }<br>
-            <b>Fecha:</b> {row.get('fecha_evento', '-')}
-            """
+        # Convertir a arrays numpy para evitar iterrows() fila por fila
+        lat_col  = 'coordenada_latitud'  if 'coordenada_latitud'  in datos_promotor.columns else 'latitud'
+        lng_col  = 'coordenada_longitud' if 'coordenada_longitud' in datos_promotor.columns else 'longitud'
+        arr = datos_promotor[[lat_col, lng_col, 'id_contacto', 'fecha_evento']].copy()
+        arr[lat_col] = pd.to_numeric(arr[lat_col], errors='coerce')
+        arr[lng_col] = pd.to_numeric(arr[lng_col], errors='coerce')
+        arr = arr.dropna(subset=[lat_col, lng_col])
+
+        for row_vals in arr.itertuples(index=False):
+            lat = row_vals[0]
+            lng = row_vals[1]
+            id_c = row_vals[2]
+            fecha = str(row_vals[3])[:10]          # solo fecha YYYY-MM-DD
+            # tooltip liviano (texto plano) — mucho más rápido que Popup con HTML
+            tooltip_txt = f"{nombre_promotor} · {id_c} · {fecha}"
             folium.CircleMarker(
                 location=[float(lat), float(lng)],
                 radius=5,
@@ -398,7 +431,7 @@ def build_promotores_groups(
                 fill=True,
                 fillColor=color_promotor,
                 fillOpacity=0.9,
-                popup=folium.Popup(popup_text, max_width=320),
+                tooltip=tooltip_txt,
             ).add_to(sg)
 
         grupos_promotores.append((nombre_promotor, sg, count, color_promotor))
@@ -624,10 +657,21 @@ def _calcular_metricas_agrupadas(
     # Copia de df_filtrado para cálculos de fidelidad/contactabilidad
     df_c = df_filtrado.copy()
 
-    # Flags de fidelidad y contacto
+    # Flags de fidelidad
     df_c['es_no_fiel'] = ~df_c['id_contacto_categoria'].isin(CATEGORIAS_FIELES)
-    df_c['es_contactado'] = df_c['ultima_llamada'] > df_c['fecha_evento']
-    df_c['es_contactado_no_fiel'] = df_c['es_no_fiel'] & df_c['es_contactado']
+
+    # Contactabilidad real (fuente: aplicar_contactabilidad_temporal)
+    # Columnas es_contactable y es_venta ya vienen procesadas con filtro temporal
+    # (llamada POSTERIOR a la muestra del promotor para ese contacto).
+    # Si por algún motivo no están, cae a 0.
+    for _flag in ['es_contactable', 'es_venta']:
+        if _flag not in df_c.columns:
+            df_c[_flag] = 0
+        df_c[_flag] = df_c[_flag].fillna(0).astype(int)
+
+    df_c['es_contactado']          = df_c['es_contactable'].astype(bool)
+    df_c['es_venta_realizada']     = df_c['es_venta'].astype(bool)
+    df_c['es_contactado_no_fiel']  = df_c['es_no_fiel'] & df_c['es_contactado']
 
     # Asegurar fecha_dia en original y filtrado
     if 'fecha_evento' in df_original.columns and 'fecha_dia' not in df_original.columns:
@@ -652,12 +696,13 @@ def _calcular_metricas_agrupadas(
             df_dias.assign(es_habil=df_dias['n_dia'] >= 2)
                     .groupby('id_promotor')['es_habil'].sum().rename('dias_habiles').reset_index()
         )
-        # Agregados fidelidad/contacto sobre df_c
+        # Agregados fidelidad/contacto sobre df_c (fuente real: llamadas post-muestra)
         agg_contacto = (
             df_c.groupby('id_promotor').agg(
                 clientes_no_fieles=('es_no_fiel', 'sum'),
                 clientes_contactables=('es_contactado', 'sum'),
                 clientes_contactables_no_fieles=('es_contactado_no_fiel', 'sum'),
+                clientes_venta=('es_venta_realizada', 'sum'),
             ).reset_index()
         )
         df_agrupado = (
@@ -697,6 +742,7 @@ def _calcular_metricas_agrupadas(
                 clientes_no_fieles=('es_no_fiel', 'sum'),
                 clientes_contactables=('es_contactado', 'sum'),
                 clientes_contactables_no_fieles=('es_contactado_no_fiel', 'sum'),
+                clientes_venta=('es_venta_realizada', 'sum'),
             ).reset_index()
         )
         df_agrupado = (
@@ -721,11 +767,23 @@ def _calcular_metricas_agrupadas(
     df_agrupado['pct_clientes_no_fieles'] = df_agrupado.apply(
         lambda r: _pct(r['clientes_no_fieles'], r['clientes_total']), axis=1
     )
+    # % Contactabilidad real: clientes con llamada contestada o exitosa / clientes únicos
     df_agrupado['pct_total_muestras_contactables'] = df_agrupado.apply(
         lambda r: _pct(r['clientes_contactables'], r['clientes_total']), axis=1
     )
+    # % Contactabilidad No Fieles real: no fieles contactados / total no fieles
     df_agrupado['pct_contactabilidad_no_fieles'] = df_agrupado.apply(
         lambda r: _pct(r['clientes_contactables_no_fieles'], r['clientes_no_fieles']), axis=1
+    )
+    # % Captación efectiva: no fieles contactados / total clientes
+    # Responde: "¿Qué % de todos mis clientes son nuevos Y me dijeron aló?"
+    # Ejemplo Diana: 1.127 / 2.417 = 46,6%
+    df_agrupado['pct_nofiel_contactable'] = df_agrupado.apply(
+        lambda r: _pct(r.get('clientes_contactables_no_fieles', 0), r['clientes_total']), axis=1
+    )
+    # % Conversión: es_venta=1 / clientes contactados reales (no sobre total)
+    df_agrupado['pct_conversion'] = df_agrupado.apply(
+        lambda r: _pct(r.get('clientes_venta', 0), r.get('clientes_contactables', 0)), axis=1
     )
     df_agrupado['clientes_por_dia_habil'] = df_agrupado.apply(
         lambda r: (r['clientes_total'] / r['dias_habiles']) if r['dias_habiles'] and r['dias_habiles'] > 0 else None,
@@ -733,6 +791,16 @@ def _calcular_metricas_agrupadas(
     )
 
     return df_agrupado
+
+
+def _t(label: str, t0: float, t_prev: float) -> float:
+    """Imprime el tiempo de un paso y retorna el timestamp actual."""
+    import time as _time
+    now = _time.perf_counter()
+    elapsed = now - t_prev
+    tag = "BD " if elapsed > 0.5 else "MEM"
+    print(f"  [{tag}] {label:<30} {elapsed:>6.2f} s")
+    return now
 
 
 def generar_mapa_muestras(
@@ -748,6 +816,13 @@ def generar_mapa_muestras(
       df_filtrado : clientes únicos (última muestra por promotor)
       df_agrupado : métricas agregadas para leyenda detalle
     """
+    import time as _time
+    _t0 = _time.perf_counter()
+    _tp = _t0
+    print(f"\n{'─'*55}")
+    print(f"  ATLAS TIMING  {ciudad}  [{agrupar_por}]  {fecha_inicio} → {fecha_fin}")
+    print(f"{'─'*55}")
+
     ciudad_norm = _normalizar_ciudad(ciudad)
     if ciudad_norm not in CENTROOPES:
         raise ValueError(f"Ciudad desconocida: {ciudad}")
@@ -760,14 +835,29 @@ def generar_mapa_muestras(
         fecha_fin=fecha_fin,
         ids_promotor=None,
     )
+    _tp = _t("consultar_db (muestras)", _t0, _tp)
+
     df_original = crear_df(df_raw)
+    _tp = _t("crear_df + normalizar", _t0, _tp)
 
     if df_original.empty:
+        print(f"  [---] Sin datos → saliendo\n{'─'*55}\n")
         return df_original, df_original.copy(), pd.DataFrame()
 
     # 2. fecha_dia para df_original (puede requerirse en agrupados)
     if 'fecha_evento' in df_original.columns:
         df_original['fecha_dia'] = df_original['fecha_evento'].dt.date
+
+    # 2b. Excluir promotores con menos de MIN_MUESTRAS_PROMOTOR muestras
+    #     Se cuenta sobre df_original (todas las muestras, sin deduplicar).
+    conteo_por_promotor = df_original.groupby('id_promotor', observed=True).size()
+    promotores_validos  = conteo_por_promotor[conteo_por_promotor >= MIN_MUESTRAS_PROMOTOR].index
+    df_original = df_original[df_original['id_promotor'].isin(promotores_validos)].copy()
+    _tp = _t(f"filtro ≥{MIN_MUESTRAS_PROMOTOR} muestras", _t0, _tp)
+
+    if df_original.empty:
+        print(f"  [---] Sin promotores válidos → saliendo\n{'─'*55}\n")
+        return df_original, df_original.copy(), pd.DataFrame()
 
     # 3. Construir df_filtrado (modo clientes: última muestra por promotor-contacto)
     df_filtrado = (
@@ -775,15 +865,36 @@ def generar_mapa_muestras(
                   .sort_values('fecha_evento')
                   .drop_duplicates(subset=['id_promotor', 'id_contacto'], keep='last')
     )
+    _tp = _t("dedup clientes únicos", _t0, _tp)
 
-    # 4. Métricas de contacto / fidelidad
+    # 4. Contactabilidad con filtro temporal
+    #    Regla: solo llamadas POSTERIORES a la muestra del promotor cuentan.
+    #    consultar_llamadas_raw devuelve (id_contacto, fecha_llamada, es_contactable, es_venta)
+    #    aplicar_contactabilidad_temporal cruza por (promotor, contacto) y filtra
+    #    fecha_llamada > fecha_evento antes de agregar los flags.
+    ids_contacto = tuple(
+        sorted(df_original['id_contacto'].dropna().astype(int).unique().tolist())
+    )
+    df_llamadas_raw = consultar_llamadas_raw(
+        ids_contacto=ids_contacto,
+        fecha_inicio=fecha_inicio,
+        fecha_fin=fecha_fin,
+    )
+    _tp = _t(f"consultar_llamadas_raw ({len(ids_contacto)} ids)", _t0, _tp)
+
+    df_filtrado = aplicar_contactabilidad_temporal(df_filtrado, df_llamadas_raw)
+    _tp = _t("aplicar_contactabilidad_temporal", _t0, _tp)
+
+    # 5. Métricas de contacto / fidelidad
     df_metricas = _calcular_metricas_agrupadas(df_original, df_filtrado, agrupar_por)
+    _tp = _t("métricas agrupadas", _t0, _tp)
 
     # Si no hay métricas, devolvemos tal cual
     if df_metricas.empty:
+        print(f"  [---] Sin métricas\n{'─'*55}\n")
         return df_original, df_filtrado, df_metricas
 
-    # 5. Áreas (M2) según agrupar_por, usando el df_filtrado (modo clientes)
+    # 6. Áreas (M2) según agrupar_por, usando el df_filtrado (modo clientes)
     # calcular_areas_por_promotor espera columna id_autor
     df_para_areas = df_filtrado.rename(columns={"id_promotor": "id_autor"})
     df_areas = areas_muestras_resumen(
@@ -791,6 +902,7 @@ def generar_mapa_muestras(
         centroope=centroope,
         agrupar_por=agrupar_por,
     )
+    _tp = _t("áreas M2 (geoespacial)", _t0, _tp)
 
     # 6. Merge métricas + áreas
     if agrupar_por == "Promotor":
@@ -827,6 +939,12 @@ def generar_mapa_muestras(
     except Exception:
         pass
 
+    import time as _time
+    _total = _time.perf_counter() - _t0
+    print(f"  {'─'*45}")
+    print(f"  {'TOTAL datos':.<30} {_total:>6.2f} s")
+    print(f"{'─'*55}\n")
+
     return df_original, df_filtrado, df_agrupado
 
 
@@ -845,6 +963,10 @@ def generar_mapa_muestras_visual(
         filename = guardar_mapa_controlado(mapa, tipo_mapa="mapa_muestras", permitir_multiples=False)
         return filename, 0, None
 
+    import time as _time
+    _tv0 = _time.perf_counter()
+    _tvp = _tv0
+
     centroope = CENTROOPES[ciudad_norm]
     location, geojson_file_path = coordenadas_ciudades[ciudad_norm]
 
@@ -854,6 +976,7 @@ def generar_mapa_muestras_visual(
         ciudad=ciudad,
         agrupar_por=agrupar_por,
     )
+    _tvp = _t("  datos totales (↑ desglose)", _tv0, _tvp)
 
     # Chequeo vacío
     if df_original is None or df_original.empty:
@@ -992,10 +1115,13 @@ def generar_mapa_muestras_visual(
         layer_hijo.add_to(cuadrantes_hijos_group)
 
     # Grupos de puntos
+    # NOTA: los puntos del mapa usan df_original (TODAS las muestras, incluyendo
+    # re-visitas al mismo cliente). Las métricas de la leyenda siguen calculadas
+    # sobre df_filtrado (cliente único por promotor, última muestra).
     legend_html = ""
     if agrupar_por == "Promotor":
         fg_promotores = folium.FeatureGroup(name="PROMOTORES", show=True).add_to(mapa)
-        grupos_por_promotor = dict(tuple(df_filtrado.groupby('id_promotor')))
+        grupos_por_promotor = dict(tuple(df_original.groupby('id_promotor')))
         promotores_ordenados = sorted(
             grupos_por_promotor.keys(),
             key=lambda pid: len(grupos_por_promotor[pid]),
@@ -1004,16 +1130,16 @@ def generar_mapa_muestras_visual(
         promotores_ordenados = [int(pid) for pid in promotores_ordenados]
         colores_promotores_map = {str(pid): color_for_promotor(centroope, pid) for pid in promotores_ordenados}
 
-        # legend_name_map desde df (apellido_promotor)
+        # legend_name_map desde df_original (apellido_promotor)
         legend_name_map = {}
-        if 'apellido_promotor' in df_filtrado.columns:
-            tmp = df_filtrado[["id_promotor", "apellido_promotor"]].dropna().drop_duplicates("id_promotor")
+        if 'apellido_promotor' in df_original.columns:
+            tmp = df_original[["id_promotor", "apellido_promotor"]].dropna().drop_duplicates("id_promotor")
             for _, r in tmp.iterrows():
                 pid = str(r['id_promotor'])
                 legend_name_map[pid] = compactar_dos_palabras(r['apellido_promotor'], pid)
 
         grupos_promotores = build_promotores_groups(
-            df_filtrado,
+            df_original,                        # todas las muestras en el mapa
             parent_group=fg_promotores,
             colores_promotores_map=colores_promotores_map,
             legend_name_map=legend_name_map,
@@ -1052,12 +1178,14 @@ def generar_mapa_muestras_visual(
                     muestras_por_km2=muestras_por_km2,
                     muestras_por_dia_habil=r.get('clientes_por_dia_habil'),
                     color_hex=colores_promotores_map.get(str(int(pid))) if pd.notna(pid) else None,
+                    pct_conversion=float(r.get('pct_conversion') or 0.0),
+                    pct_nofiel_contactable=float(r.get('pct_nofiel_contactable') or 0.0),
                 ))
         legend_html = _render_legend_html_muestras(rows_struct, titulo="Métricas por promotor (clientes únicos)", label_col="Promotor")
 
     elif agrupar_por == "Mes":
         fg_mes = folium.FeatureGroup(name="MESES", show=True).add_to(mapa)
-        df_meswork = df_filtrado.copy()
+        df_meswork = df_original.copy()  # todas las muestras en el mapa
         if 'mes' not in df_meswork.columns and 'fecha_evento' in df_meswork.columns:
             df_meswork['mes'] = df_meswork['fecha_evento'].dt.month
         meses_presentes = (
@@ -1070,19 +1198,23 @@ def generar_mapa_muestras_visual(
             sg_mes = FeatureGroupSubGroup(fg_mes, name=nombre_mes, show=True)
             sg_mes.add_to(mapa)
             datos_mes = df_meswork[df_meswork['mes'] == mes]
-            for _, punto in datos_mes.iterrows():
-                lat = punto.get('coordenada_latitud', punto.get('latitud'))
-                lon = punto.get('coordenada_longitud', punto.get('longitud'))
-                if pd.notna(lat) and pd.notna(lon):
-                    popup_content = f"""
-                    <div style='font-family: Arial, sans-serif; font-size: 12px;'>
-                        <b>Cliente:</b> {punto.get('id_contacto', 'N/A')}<br>
-                        Fecha: {punto.get('fecha_evento', 'N/A')}<br>
-                        Barrio: {punto.get('barrio', 'N/A')}<br>
-                        Promotor: {punto.get('id_promotor', 'N/A')}
-                    </div>
-                    """
-                    folium.CircleMarker(location=[float(lat), float(lon)], radius=4, popup=folium.Popup(popup_content, max_width=300), color='white', weight=1, fillColor=color_mes, fillOpacity=0.8).add_to(sg_mes)
+            lat_col = 'coordenada_latitud'  if 'coordenada_latitud'  in datos_mes.columns else 'latitud'
+            lng_col = 'coordenada_longitud' if 'coordenada_longitud' in datos_mes.columns else 'longitud'
+            arr_mes = datos_mes[[lat_col, lng_col, 'id_contacto', 'fecha_evento', 'id_promotor']].copy()
+            arr_mes[lat_col] = pd.to_numeric(arr_mes[lat_col], errors='coerce')
+            arr_mes[lng_col] = pd.to_numeric(arr_mes[lng_col], errors='coerce')
+            arr_mes = arr_mes.dropna(subset=[lat_col, lng_col])
+            for rv in arr_mes.itertuples(index=False):
+                tooltip_txt = f"{nombre_mes} · {rv[2]} · {str(rv[3])[:10]}"
+                folium.CircleMarker(
+                    location=[float(rv[0]), float(rv[1])],
+                    radius=4,
+                    color='white',
+                    weight=1,
+                    fillColor=color_mes,
+                    fillOpacity=0.8,
+                    tooltip=tooltip_txt,
+                ).add_to(sg_mes)
         if HAS_TREE_CONTROL:
             TreeLayerControl(collapsed=True, position='topright').add_to(mapa)
         else:
@@ -1121,8 +1253,98 @@ def generar_mapa_muestras_visual(
                     muestras_por_km2=muestras_por_km2,
                     muestras_por_dia_habil=r.get('clientes_por_dia_habil'),
                     color_hex=PALETA_MESES.get(mes, '#999999'),
+                    pct_conversion=float(r.get('pct_conversion') or 0.0),
+                    pct_nofiel_contactable=float(r.get('pct_nofiel_contactable') or 0.0),
                 ))
         legend_html = _render_legend_html_muestras(rows_struct_mes, titulo="Métricas por mes (clientes únicos)", label_col="Mes")
+
+    # ── JS: cascade PROMOTORES checkbox → todos sus hijos ────────────────────
+    # Cuando el usuario desmarca "PROMOTORES" todos los sub-grupos individuales
+    # se desmarcan también, y viceversa. Funciona con TreeLayerControl y con
+    # el LayerControl estándar (estructura plana).
+    _cascade_js = """
+<script>
+(function(){
+    function taSetupCascade(){
+        var done = false;
+
+        /* ── TreeLayerControl (estructura anidada) ── */
+        document.querySelectorAll('.leaflet-layerstree-header').forEach(function(hdr){
+            var spans = hdr.querySelectorAll('span');
+            var txt = spans.length ? spans[spans.length-1].textContent.trim() : '';
+            if(txt.toUpperCase() !== 'PROMOTORES') return;
+            var parentCb = hdr.querySelector('input[type="checkbox"]');
+            var node = hdr.closest('.leaflet-layerstree-node');
+            var kids = node ? node.querySelector('.leaflet-layerstree-children') : null;
+            if(parentCb && kids && !parentCb.__taCascade){
+                parentCb.__taCascade = true;
+
+                /* Padre → hijos: desmarcar/marcar todos */
+                parentCb.addEventListener('change', function(e){
+                    var checked = e.target.checked;
+                    kids.querySelectorAll('input[type="checkbox"]').forEach(function(c){
+                        if(c.checked !== checked) c.click();
+                    });
+                });
+
+                /* Hijos → padre: activar padre si cualquier hijo se marca */
+                kids.querySelectorAll('input[type="checkbox"]').forEach(function(childCb){
+                    if(!childCb.__taParentLink){
+                        childCb.__taParentLink = true;
+                        childCb.addEventListener('change', function(e){
+                            if(e.target.checked && !parentCb.checked) parentCb.click();
+                        });
+                    }
+                });
+                done = true;
+            }
+        });
+        if(done) return;
+
+        /* ── LayerControl estándar (estructura plana) ── */
+        var overlays = document.querySelector('.leaflet-control-layers-overlays');
+        if(!overlays){ setTimeout(taSetupCascade, 400); return; }
+        var labels = Array.from(overlays.querySelectorAll('label'));
+        var promIdx = -1, promCb = null;
+        labels.forEach(function(lbl, i){
+            var spans = lbl.querySelectorAll('span');
+            var t = spans.length ? spans[spans.length-1].textContent.trim() : lbl.textContent.trim();
+            if(t.toUpperCase() === 'PROMOTORES' && promIdx === -1){
+                promIdx = i;
+                promCb = lbl.querySelector('input[type="checkbox"]');
+            }
+        });
+        if(promCb && !promCb.__taCascade){
+            promCb.__taCascade = true;
+
+            /* Padre → hijos */
+            promCb.addEventListener('change', function(e){
+                var checked = e.target.checked;
+                labels.slice(promIdx + 1).forEach(function(lbl){
+                    var c = lbl.querySelector('input[type="checkbox"]');
+                    if(c && c.checked !== checked) c.click();
+                });
+            });
+
+            /* Hijos → padre: activar padre al marcar cualquier hijo */
+            labels.slice(promIdx + 1).forEach(function(lbl){
+                var c = lbl.querySelector('input[type="checkbox"]');
+                if(c && !c.__taParentLink){
+                    c.__taParentLink = true;
+                    c.addEventListener('change', function(e){
+                        if(e.target.checked && !promCb.checked) promCb.click();
+                    });
+                }
+            });
+        } else if(promIdx === -1){
+            setTimeout(taSetupCascade, 400);
+        }
+    }
+    [200, 700, 1500].forEach(function(d){ setTimeout(taSetupCascade, d); });
+})();
+</script>
+"""
+    mapa.get_root().html.add_child(folium.Element(_cascade_js))
 
     # Insertar leyenda
     if legend_html:
@@ -1235,7 +1457,13 @@ def generar_mapa_muestras_visual(
         df_csv = None
 
     # Guardar mapa y retornar
+    _tvp = _t("construir mapa (folium)", _tv0, _tvp)
     filename = guardar_mapa_controlado(mapa, tipo_mapa="mapa_muestras", permitir_multiples=False)
+    _tvp = _t("guardar HTML", _tv0, _tvp)
+    _total_visual = _time.perf_counter() - _tv0
+    print(f"  {'─'*45}")
+    print(f"  {'TOTAL end-to-end':.<30} {_total_visual:>6.2f} s\n")
+
     n_puntos = len(df_filtrado) if not df_filtrado.empty else 0
     return filename, n_puntos, df_csv
 
