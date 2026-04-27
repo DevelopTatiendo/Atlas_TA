@@ -70,7 +70,7 @@ pnpm-lock.yaml
 *.swo
 *.code-workspace
 .DS_Store
-Thumbbs.db
+Thumbs.db
 desktop.ini
 
 # =========================
@@ -90,6 +90,7 @@ Pruebas/Resultados M2/*.csv
 Pruebas/Resultados_M2_Test/**
 Pruebas/Resultados_M2_Test/*.html
 Pruebas/Resultados_M2_Test/*.csv
+Claude/**
 
 # ⚠️ No ignores todo *.html / *.pdf globalmente
 # Si necesitas ignorar PDFs de informes, hazlo por carpeta:
@@ -126,8 +127,3 @@ scratch/
 # Contenedores
 docker-compose.override.yml
 
-# =========================
-# Claude / outputs locales
-# =========================
-# Carpeta de reportes y outputs generados por Claude (uso local, no versionar)
-Claude/
