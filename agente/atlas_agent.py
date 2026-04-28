@@ -267,6 +267,114 @@ TOOLS_DEFINICION = [
             "required": [],
         },
     },
+    # ── Consulta previa OBLIGATORIA antes de generar mapa ────────────────────
+    {
+        "name": "consultar_clientes",
+        "description": (
+            "PASO 1 OBLIGATORIO antes de generar cualquier mapa. "
+            "Ejecuta el SQL de filtro, cuenta cuántos clientes cumplen la condición, "
+            "cuántos tienen coordenadas en el cache, y calcula KPIs automáticos "
+            "según las columnas del resultado (monetarias, flags, fechas, conteos). "
+            "Muestra el resumen al usuario y ESPERA su confirmación antes de generar el mapa. "
+            "NUNCA llames generar_mapa_clientes sin haber llamado consultar_clientes primero."
+        ),
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "sql_clientes": {
+                    "type": "string",
+                    "description": (
+                        "SELECT que devuelve id_contacto + atributos a visualizar. "
+                        "DEBE incluir id_contacto. NO incluir lat/lon."
+                    ),
+                },
+                "ciudad": {
+                    "type": "integer",
+                    "description": "id_centroope: Cali=2, Medellín=3, Bogotá=4, Pereira=5, Manizales=6, Bucaramanga=7, Barranquilla=8.",
+                },
+                "schema_sql": {
+                    "type": "string",
+                    "description": "Schema de BD (default: fullclean_contactos).",
+                },
+                "tipo_mapa_sugerido": {
+                    "type": "string",
+                    "enum": ["puntos_bicolor", "circulos_proporcionales", "heatmap", "clusters"],
+                    "description": "Tipo de mapa que usarás cuando el usuario confirme.",
+                },
+                "campo_valor": {
+                    "type": "string",
+                    "description": "Columna numérica para circulos_proporcionales o peso heatmap.",
+                },
+                "campo_color": {
+                    "type": "string",
+                    "description": "Columna 0/1 para puntos_bicolor.",
+                },
+                "titulo": {
+                    "type": "string",
+                    "description": "Título descriptivo del mapa.",
+                },
+            },
+            "required": ["sql_clientes", "ciudad"],
+        },
+    },
+    # ── Mapa estándar (SQL → cache coords → renderer) ────────────────────────
+    {
+        "name": "generar_mapa_clientes",
+        "description": (
+            "Genera un mapa a partir de un SQL que filtra clientes y las coordenadas del cache local. "
+            "FLUJO: ejecuta sql_clientes → obtiene id_contacto + atributos → "
+            "hace merge con cache de coords (lat/lon centroide del cliente) → pinta el mapa. "
+            "NO requiere que el SQL traiga lat/lon — las coordenadas vienen del cache. "
+            "El SQL DEBE incluir id_contacto como columna. "
+            "Usar para todos los mapas de negocio: cobertura, deuda, actividad, clientes activos."
+        ),
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "sql_clientes": {
+                    "type": "string",
+                    "description": (
+                        "SELECT que devuelve id_contacto + atributos a visualizar. "
+                        "Ejemplo: SELECT c.id AS id_contacto, c.nombre, SUM(f.saldo_pendiente) AS deuda_total "
+                        "FROM ... WHERE ... GROUP BY c.id, c.nombre. "
+                        "NO incluir lat/lon en el SQL — vienen del cache."
+                    ),
+                },
+                "ciudad": {
+                    "type": "integer",
+                    "description": "id_centroope para cargar el cache correcto. Cali=2, Medellín=3, Bogotá=4, Pereira=5, Manizales=6, Bucaramanga=7, Barranquilla=8.",
+                },
+                "tipo": {
+                    "type": "string",
+                    "enum": ["puntos_bicolor", "circulos_proporcionales", "heatmap", "clusters"],
+                    "description": (
+                        "Tipo de visualización: "
+                        "puntos_bicolor=verde/rojo (requiere campo_color 0/1), "
+                        "circulos_proporcionales=tamaño∝valor (requiere campo_valor numérico), "
+                        "heatmap=densidad de puntos, "
+                        "clusters=agrupación automática con popup."
+                    ),
+                },
+                "campo_valor": {
+                    "type": "string",
+                    "description": "Nombre de columna numérica del SQL para circulos_proporcionales o peso en heatmap.",
+                },
+                "campo_color": {
+                    "type": "string",
+                    "description": "Nombre de columna 0/1 del SQL para puntos_bicolor (ej: 'visitado').",
+                },
+                "titulo": {
+                    "type": "string",
+                    "description": "Título visible en el mapa y nombre del archivo HTML.",
+                },
+                "schema_sql": {
+                    "type": "string",
+                    "description": "Schema de la BD para el SQL (default: fullclean_contactos).",
+                },
+            },
+            "required": ["sql_clientes", "ciudad", "tipo"],
+        },
+    },
     # Herramienta de código dinámico — importada desde mapa_ejecutor.py
     _MAPA_EJECUTOR_TOOL,
 ]
@@ -293,13 +401,27 @@ GLOSARIO OPERACIONAL:
 - Conversión: de los que contestaron, cuántos generaron pedido (es_venta=1) después de la muestra.
 - Cache coordenadas: archivo local con GPS de clientes. Actualizar con actualizar_cache_coordenadas.
 
-FLUJO DE TRABAJO:
-1. Si el usuario pregunta por una ciudad → llama listar_rutas_ciudad primero.
-2. Si pide análisis de ruta específica → consultar_ruta_completa.
-3. Si pide un mapa → usa ejecutar_codigo_mapa generando el código Python+Folium tú mismo.
-4. Si necesitas entender una tabla nueva → explorar_tabla antes de asumir columnas.
-5. NUNCA inventes datos. Si no tienes certeza, dilo y sugiere qué herramienta llamar.
-6. SOLO SELECT/SHOW en BD.
+FLUJO PARA MAPAS:
+1. Construye el SQL de filtro. El SQL debe traer id_contacto + atributos. NUNCA lat/lon.
+2. Llama consultar_clientes(sql, ciudad, tipo_mapa_sugerido, campo_valor/campo_color, titulo).
+3. Si n_con_coords > 0 → llama INMEDIATAMENTE generar_mapa_clientes con EL MISMO sql y parámetros. Sin esperar confirmación.
+4. Si n_con_coords == 0 → informa en 1 línea.
+
+REGLAS DE MAPA CRÍTICAS:
+- USA SIEMPRE generar_mapa_clientes para mapas de clientes. NUNCA ejecutar_codigo_mapa para esto.
+- ejecutar_codigo_mapa es SOLO para visualizaciones que no sean listas de clientes (ej: polígonos de zona, rutas de línea).
+- generar_mapa_clientes hace el merge con el cache de coordenadas internamente — NUNCA hagas el merge tú mismo.
+
+RESPUESTAS — FORMATO ESTRICTO:
+- Máximo 1-2 líneas de texto. NADA más.
+- NUNCA escribas tablas, listas de KPIs ni números en tu respuesta. La UI los muestra automáticamente.
+- Solo di: qué mapa se generó y dónde está. Ej: "Mapa listo: 58 clientes Aranjuez con deuda 30-720d."
+
+OTROS FLUJOS:
+- Ciudad → listar_rutas_ciudad primero.
+- Ruta específica → consultar_ruta_completa.
+- Tabla desconocida → explorar_tabla antes de asumir columnas.
+- NUNCA inventes datos. SOLO SELECT/SHOW en BD.
 
 REGLAS PARA ejecutar_codigo_mapa:
 - El código DEBE asignar el mapa Folium a la variable `mapa`.
@@ -357,6 +479,135 @@ def _ejecutar_herramienta(nombre: str, argumentos: dict) -> Any:
             fecha_fin=kwargs.get("fecha_fin"),
         )
 
+    def _consultar_clientes(**kwargs):
+        from pre_procesamiento.db_utils import sql_read
+        from agente.coord_cache_parquet import buscar_coords
+        from agente.kpi_auto import calcular_kpis, kpis_a_markdown
+
+        sql        = kwargs.get("sql_clientes", "")
+        ciudad     = kwargs.get("ciudad", 3)
+        schema_sql = kwargs.get("schema_sql", "fullclean_contactos")
+
+        # 1. Ejecutar SQL
+        try:
+            df = sql_read(sql, schema=schema_sql)
+        except Exception as e:
+            return {"ok": False, "error": f"Error en SQL: {e}"}
+
+        if df.empty:
+            return {"ok": False, "error": "El SQL no devolvió clientes con esos filtros."}
+
+        if "id_contacto" not in df.columns:
+            return {"ok": False, "error": "El SQL debe incluir 'id_contacto'."}
+
+        n_total = len(df)
+
+        # 2. Cruzar con cache de coords
+        ids = df["id_contacto"].dropna().astype(int).tolist()
+        df_coords = buscar_coords(ids, ciudad)
+        n_con_coords = len(df_coords)
+
+        # 3. Merge para KPIs (usamos df completo, no solo los con coords)
+        df_merge = df.merge(df_coords, on="id_contacto", how="left")
+
+        # 4. KPIs automáticos
+        kpis = calcular_kpis(df_merge, n_con_coords)
+        tabla_md = kpis_a_markdown(kpis)
+
+        # 5. Muestra de primeras filas (sin lat/lon)
+        cols_muestra = [c for c in df.columns if c not in ("lat", "lon")]
+        muestra = df[cols_muestra].head(5).to_dict(orient="records")
+
+        resultado = {
+            "ok":           True,
+            "n_total":      n_total,
+            "n_con_coords": n_con_coords,
+            "pct_coords":   round(100 * n_con_coords / n_total, 1) if n_total else 0,
+            "columnas":     list(df.columns),
+            "kpis":         kpis,
+            "tabla_kpis_md": tabla_md,
+            "muestra":      muestra,
+            # Parámetros para reusar en generar_mapa_clientes
+            "sql_para_mapa":        sql,
+            "ciudad":               ciudad,
+            "schema_sql":           schema_sql,
+            "tipo_mapa_sugerido":   kwargs.get("tipo_mapa_sugerido", "clusters"),
+            "campo_valor":          kwargs.get("campo_valor"),
+            "campo_color":          kwargs.get("campo_color"),
+            "titulo":               kwargs.get("titulo", ""),
+        }
+        return resultado
+
+    def _generar_mapa_clientes(**kwargs):
+        from pre_procesamiento.db_utils import sql_read
+        from agente.coord_cache_parquet import buscar_coords
+        from agente.map_renderer import pintar_mapa
+
+        sql        = kwargs.get("sql_clientes", "")
+        ciudad     = kwargs.get("ciudad", 3)
+        tipo       = kwargs.get("tipo", "clusters")
+        schema_sql = kwargs.get("schema_sql", "fullclean_contactos")
+        titulo     = kwargs.get("titulo", "")
+        campo_valor = kwargs.get("campo_valor")
+        campo_color = kwargs.get("campo_color")
+
+        # 1. Ejecutar SQL del agente
+        try:
+            df_clientes = sql_read(sql, schema=schema_sql)
+        except Exception as e:
+            return {"ok": False, "error": f"Error en SQL: {e}"}
+
+        if df_clientes.empty:
+            return {"ok": False, "error": "El SQL no devolvió ningún cliente con esos filtros."}
+
+        if "id_contacto" not in df_clientes.columns:
+            return {"ok": False, "error": "El SQL debe incluir 'id_contacto' como columna."}
+
+        n_clientes = len(df_clientes)
+
+        # 2. Merge con cache de coordenadas
+        ids = df_clientes["id_contacto"].dropna().astype(int).tolist()
+        df_coords = buscar_coords(ids, ciudad)
+
+        if df_coords.empty:
+            return {
+                "ok": False,
+                "error": (
+                    f"Cache de coordenadas vacío para ciudad {ciudad}. "
+                    "Ejecuta: python -m agente.coord_cache_parquet --ciudad {ciudad}"
+                ),
+            }
+
+        # Merge: solo clientes que tienen coordenadas
+        df_merge = df_clientes.merge(df_coords, on="id_contacto", how="inner")
+        n_con_coords = len(df_merge)
+
+        if df_merge.empty:
+            return {
+                "ok": False,
+                "error": (
+                    f"Ninguno de los {n_clientes} clientes del filtro tiene coordenadas en el cache. "
+                    "Considera actualizar el cache con construir_cache_ciudad()."
+                ),
+            }
+
+        # 3. Pintar mapa
+        resultado = pintar_mapa(
+            df_merge,
+            tipo=tipo,
+            titulo=titulo,
+            ciudad_id=ciudad,
+            campo_valor=campo_valor,
+            campo_color=campo_color,
+            nombre_archivo=titulo or tipo,
+        )
+
+        resultado["n_clientes_filtro"] = n_clientes
+        resultado["n_con_coords"]      = n_con_coords
+        resultado["pct_cobertura_geo"] = round(100 * n_con_coords / n_clientes, 1) if n_clientes else 0
+
+        return resultado
+
     mapa_funciones = {
         "consultar_metricas":         h.consultar_metricas,
         "generar_mapa":               h.generar_mapa,
@@ -369,6 +620,8 @@ def _ejecutar_herramienta(nombre: str, argumentos: dict) -> Any:
         "analizar_zona_promotor":     ar.analizar_zona_promotor,
         "explorar_tabla":             _explorar_tabla,
         "actualizar_cache_coordenadas": _actualizar_cache,
+        "consultar_clientes":         _consultar_clientes,
+        "generar_mapa_clientes":      _generar_mapa_clientes,
         "ejecutar_codigo_mapa":       ejecutar_codigo_mapa,
     }
 
@@ -419,6 +672,8 @@ class AtlasAgent:
         self._system    = _build_system_prompt()
         # Último mapa generado (ruta al HTML). Lo consume atlas_chat.py tras cada respuesta.
         self._ultimo_mapa: str | None = None
+        # Última consulta de clientes (resultado de consultar_clientes). La UI renderiza los KPIs.
+        self._ultima_consulta: dict | None = None
 
     def preguntar(self, mensaje: str) -> str:
         """Envía un mensaje al agente y devuelve la respuesta como texto.
@@ -437,7 +692,7 @@ class AtlasAgent:
         while True:
             respuesta = self._client.messages.create(
                 model=self._model,
-                max_tokens=1800,
+                max_tokens=2500,
                 system=self._system,
                 tools=TOOLS_DEFINICION,
                 messages=self._historial,
@@ -456,9 +711,13 @@ class AtlasAgent:
                         args_preview = json.dumps(bloque.input, ensure_ascii=False)[:80]
                         print(f"  [→ {bloque.name}] {args_preview}...")
                         resultado = _ejecutar_herramienta(bloque.name, bloque.input)
-                        # Registrar último mapa generado para que la UI pueda accederlo
-                        if bloque.name == "ejecutar_codigo_mapa" and isinstance(resultado, dict) and resultado.get("ok"):
+                                        # Registrar último mapa / última consulta para la UI
+                        if bloque.name in ("ejecutar_codigo_mapa", "generar_mapa_clientes") \
+                                and isinstance(resultado, dict) and resultado.get("ok"):
                             self._ultimo_mapa = resultado.get("html_path")
+                        if bloque.name == "consultar_clientes" \
+                                and isinstance(resultado, dict) and resultado.get("ok"):
+                            self._ultima_consulta = resultado
                         tool_results.append({
                             "type": "tool_result",
                             "tool_use_id": bloque.id,
@@ -492,6 +751,7 @@ class AtlasAgent:
         """Reinicia el historial de conversación (nueva sesión)."""
         self._historial = []
         self._ultimo_mapa = None
+        self._ultima_consulta = None
 
     def recargar_contexto(self) -> None:
         """Recarga el system prompt (útil si se agregaron nuevos ejemplos al banco)."""

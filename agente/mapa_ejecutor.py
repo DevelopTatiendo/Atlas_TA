@@ -67,7 +67,7 @@ def _build_namespace(ciudad: int | None = None) -> dict[str, Any]:
     import sys
     if str(_ROOT) not in sys.path:
         sys.path.insert(0, str(_ROOT))
-    from utils.db import sql_read  # type: ignore[import]
+    from pre_procesamiento.db_utils import sql_read
 
     namespace: dict[str, Any] = {
         # Librerías disponibles
@@ -210,7 +210,10 @@ def ejecutar_codigo_mapa(codigo: str, ciudad: int | None = None, nombre: str = "
 TOOL_DEFINICION = {
     "name": "ejecutar_codigo_mapa",
     "description": (
-        "Ejecuta código Python + Folium generado por el agente para crear un mapa interactivo. "
+        "⚠️ NO usar para mapas de clientes — usa generar_mapa_clientes para eso. "
+        "Este tool es SOLO para visualizaciones que NO son listas de clientes: "
+        "polígonos de zona, rutas de línea, mapas de sectores, coropletas, etc. "
+        "Ejecuta código Python + Folium generado por el agente. "
         "El código puede hacer queries SQL con sql_read(), procesar resultados con pandas, "
         "y construir cualquier mapa Folium. El código DEBE asignar el mapa a la variable 'mapa'. "
         "Devuelve la ruta al HTML generado. "
