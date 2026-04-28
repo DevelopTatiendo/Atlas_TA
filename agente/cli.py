@@ -24,6 +24,16 @@ from config.secrets_manager import load_env_secure
 load_env_secure(prefer_plain=True, enc_path="config/.env.enc",
                 pass_env_var="MAPAS_SECRET_PASSPHRASE", cache=False)
 
+# Diagnóstico: verificar variables críticas después de cargar el .env
+import os as _os
+_api_key = _os.getenv("ANTHROPIC_API_KEY", "")
+if not _api_key:
+    _dotenv_path = str(_ROOT / ".env")
+    print(f"⚠️  ANTHROPIC_API_KEY no encontrada después de cargar {_dotenv_path}")
+    print("   Verifica que el archivo .env contiene exactamente: ANTHROPIC_API_KEY=sk-ant-...")
+    print("   (sin espacios antes del '=' y sin comillas alrededor del valor)")
+    raise SystemExit(1)
+
 
 def modo_interactivo():
     """Sesión de chat interactiva con el agente."""

@@ -300,7 +300,7 @@ def main():
         logging.warning("DF promotor vacío; se generan archivos vacíos.")
         pd.DataFrame().to_csv(CSV_CELDAS, index=False, sep=";", encoding="utf-8-sig")
         pd.DataFrame().to_csv(CSV_PUNTOS, index=False, sep=";", encoding="utf-8-sig")
-        folium.Map(location=cfg["center"], zoom_start=12).save(HTML_MAP)
+        folium.Map(location=cfg["center"], zoom_start=12, tiles="CartoDB positron").save(HTML_MAP)
         return
     df_pts, df_cells = generar_grid(df_promotor)
     # Exportar puntos con índices de celda

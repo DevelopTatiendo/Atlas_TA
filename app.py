@@ -18,7 +18,7 @@ import base64
 import validators
 from datetime import datetime
 
-from mapa_muestras import generar_mapa_muestras_visual
+from  mapa_muestras import generar_mapa_muestras_visual
 
 # ── Excepciones internas de Streamlit que NO deben capturarse ─────────────────
 # Streamlit usa StopException para detener el script cuando el usuario presiona

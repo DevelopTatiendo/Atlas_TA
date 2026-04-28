@@ -654,7 +654,7 @@ def generar_mapa_consultores(fecha_inicio, fecha_fin, ciudad, ruta_id, ruta_nomb
             logger.warning(f"No se pudieron obtener datos de agregación para popups: {e}")
     
     # 7) Crear mapa base
-    mapa = folium.Map(location, zoom_start=12)
+    mapa = folium.Map(location, zoom_start=12, tiles="CartoDB positron")
     
     # 7.1) Cargar y añadir capa de comunas como base geográfica (SIEMPRE, independiente de cuadrantes)
     if os.path.exists(comunas_geojson_path):

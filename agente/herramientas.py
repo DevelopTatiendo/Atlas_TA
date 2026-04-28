@@ -310,42 +310,47 @@ def consultar_cliente(
     if id_contacto is None and nombre is None:
         raise ValueError("Debe especificar id_contacto o nombre.")
 
-    condiciones = []
-    params: list[Any] = []
+    # Construir filtro sobre vwContactos.id (PK) o vwContactos.nombre
+    condiciones_c = []
+    condiciones_e = []
+    params: dict = {}
 
     if id_contacto is not None:
-        condiciones.append("c.id_contacto = %s")
-        params.append(id_contacto)
+        condiciones_c.append("c.id = :id_c")
+        params["id_c"] = id_contacto
     elif nombre is not None:
-        condiciones.append("c.nombre_contacto LIKE %s")
-        params.append(f"%{nombre}%")
+        condiciones_c.append("c.nombre LIKE :nombre")
+        params["nombre"] = f"%{nombre}%"
 
+    ciudad_join = ""
     if ciudad is not None:
         id_centroope, _ = _resolver_ciudad(ciudad)
-        condiciones.append("e.id_centroope = %s")
-        params.append(id_centroope)
-
-    where = " AND ".join(condiciones)
+        # id_centroope no está en vwEventos — filtrar via JOIN ciudades
+        ciudad_join = "INNER JOIN fullclean_contactos.ciudades ciu ON ciu.id = c.id_ciudad"
+        condiciones_e.append(f"ciu.id_centroope = {id_centroope}")
 
     # Muestras recibidas
+    # vwEventos.id_autor = promotor, coordenada_latitud/longitud son VARCHAR
+    where_parts = condiciones_c + condiciones_e
+    where_clause = ("WHERE " + " AND ".join(where_parts)) if where_parts else ""
     sql_muestras = f"""
         SELECT
-            c.id_contacto,
-            c.nombre_contacto,
-            c.id_contacto_categoria,
-            e.id_centroope,
-            e.id_promotor,
+            c.id                                               AS id_contacto,
+            c.nombre                                           AS nombre_contacto,
+            c.id_categoria,
+            e.id_autor                                         AS id_promotor,
             e.fecha_evento,
-            e.latitud,
-            e.longitud
-        FROM vwEventos e
-        JOIN vwContactos c ON e.id_contacto = c.id_contacto
-        WHERE {where}
+            CAST(e.coordenada_latitud  AS DECIMAL(10,6))       AS latitud,
+            CAST(e.coordenada_longitud AS DECIMAL(10,6))       AS longitud
+        FROM fullclean_contactos.vwEventos e
+        JOIN fullclean_contactos.vwContactos c ON c.id = e.id_contacto
+        {ciudad_join}
+        {where_clause}
         ORDER BY e.fecha_evento DESC
         LIMIT 200
     """
 
-    df_muestras = sql_read(sql_muestras, params=params)
+    df_muestras = sql_read(sql_muestras, params=params, schema="fullclean_contactos")
 
     if df_muestras.empty:
         return {"encontrado": False, "mensaje": "No se encontraron registros."}
@@ -354,20 +359,23 @@ def consultar_cliente(
     ids = df_muestras["id_contacto"].unique().tolist()
     ids_str = ",".join(str(i) for i in ids)
 
+    # llamadas_respuestas.contestada = contactabilidad; contacto_exitoso = RPC
     sql_llamadas = f"""
         SELECT
-            id_contacto,
-            fecha_inicio_llamada,
-            contacto_exitoso,
-            es_venta
-        FROM llamadas_respuestas
-        WHERE id_contacto IN ({ids_str})
-        ORDER BY fecha_inicio_llamada DESC
+            l.id_contacto,
+            l.fecha_inicio_llamada,
+            lr.contestada,
+            lr.contacto_exitoso,
+            lr.es_venta
+        FROM fullclean_telemercadeo.llamadas l
+        LEFT JOIN fullclean_telemercadeo.llamadas_respuestas lr ON lr.id = l.id_respuesta
+        WHERE l.id_contacto IN ({ids_str})
+        ORDER BY l.fecha_inicio_llamada DESC
         LIMIT 200
     """
 
     try:
-        df_llamadas = sql_read(sql_llamadas)
+        df_llamadas = sql_read(sql_llamadas, schema="fullclean_telemercadeo")
     except Exception:
         df_llamadas = pd.DataFrame()
 

@@ -79,11 +79,16 @@ def load_env_secure(prefer_plain=True, enc_path="config/.env.enc", pass_env_var=
         pass_env_var: Variable de entorno con la passphrase
         cache: No implementado (para compatibilidad futura)
     """
-    # Opción 1: Usar .env plano si existe y se prefiere
-    if prefer_plain and os.path.exists(".env"):
+    # Opción 1: Usar .env plano si existe y se prefiere.
+    # Busca el .env relativo al directorio de este archivo (raíz del proyecto)
+    # y usa override=True para garantizar que sobreescribe valores vacíos del entorno.
+    _project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    _dotenv_path = os.path.join(_project_root, ".env")
+
+    if prefer_plain and os.path.exists(_dotenv_path):
         print("🔓 Cargando .env plano (desarrollo)")
         from dotenv import load_dotenv
-        load_dotenv()
+        load_dotenv(dotenv_path=_dotenv_path, override=True)
         return
     
     # Opción 2: Usar archivo cifrado
