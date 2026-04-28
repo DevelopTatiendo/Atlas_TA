@@ -79,11 +79,12 @@ desktop.ini
 # Mapas HTML generados por la app (mantén solo los de esta carpeta)
 static/maps/*.html
 static/maps/*.png
-static/datos/* # Si esta carpeta contiene datos generados que no quieres versionar
+static/datos/** # Si esta carpeta contiene datos generados que no quieres versionar
 
 Pruebas/Resultados M1/**
 Pruebas/Resultados M1/*.html
 Pruebas/Resultados M1/*.csv
+Pruebas/**
 
 Pruebas/Resultados M2/**
 Pruebas/Resultados M2/*.html
