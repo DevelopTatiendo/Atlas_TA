@@ -30,6 +30,9 @@ from pre_procesamiento.new_preprocesamiento_muestras import listar_promotores
 from mapa_consultores import generar_mapa_consultores
 from mapa_consultores_simple import generar_mapa_consultores_simple
 import validators
+from datetime import datetime
+
+from  mapa_muestras import generar_mapa_muestras_visual
 
 #serbot software de verificacion y certificacion de https
 # Configuración de entorno

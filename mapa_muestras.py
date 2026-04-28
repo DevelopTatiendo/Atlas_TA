@@ -959,7 +959,7 @@ def generar_mapa_muestras_visual(
 ):
     ciudad_norm = _normalizar_ciudad(ciudad)
     if ciudad_norm not in CENTROOPES or ciudad_norm not in coordenadas_ciudades:
-        mapa = folium.Map(location=[4.7110, -74.0721], zoom_start=12)
+        mapa = folium.Map(location=[4.7110, -74.0721], zoom_start=12, tiles="CartoDB positron")
         filename = guardar_mapa_controlado(mapa, tipo_mapa="mapa_muestras", permitir_multiples=False)
         return filename, 0, None
 
@@ -980,12 +980,12 @@ def generar_mapa_muestras_visual(
 
     # Chequeo vacío
     if df_original is None or df_original.empty:
-        mapa = folium.Map(location=location, zoom_start=12)
+        mapa = folium.Map(location=location, zoom_start=12, tiles="CartoDB positron")
         filename = guardar_mapa_controlado(mapa, tipo_mapa="mapa_muestras", permitir_multiples=False)
         return filename, 0, None
 
     # Crear mapa base
-    mapa = folium.Map(location=location, zoom_start=12)
+    mapa = folium.Map(location=location, zoom_start=12, tiles="CartoDB positron")
     # CSS z-index
     zindex_css = """
     <style>
@@ -1465,6 +1465,17 @@ def generar_mapa_muestras_visual(
     print(f"  {'TOTAL end-to-end':.<30} {_total_visual:>6.2f} s\n")
 
     n_puntos = len(df_filtrado) if not df_filtrado.empty else 0
+
+    # ── Enriquecer cache de coordenadas en segundo plano ─────────────────────
+    # Cada vez que se genera un mapa, las coordenadas de esta sesión
+    # alimentan el mapa simulado acumulado. Esto ocurre siempre, automáticamente.
+    try:
+        from agente.coordinate_cache import CoordinateCache
+        _cache = CoordinateCache()
+        _cache.actualizar_desde_eventos_df(df_filtrado)
+    except Exception as _ce:
+        pass  # El cache es opcional — si falla, el mapa igual se genera
+
     return filename, n_puntos, df_csv
 
 
@@ -1621,7 +1632,7 @@ def generar_mapa_muestras_auditoria(
     """
     ciudad_norm = _normalizar_ciudad(ciudad)
     if ciudad_norm not in CENTROOPES or ciudad_norm not in coordenadas_ciudades:
-        mapa = folium.Map(location=[4.7110, -74.0721], zoom_start=12)
+        mapa = folium.Map(location=[4.7110, -74.0721], zoom_start=12, tiles="CartoDB positron")
         filename = guardar_mapa_controlado(mapa, tipo_mapa="mapa_muestras_auditoria", permitir_multiples=False)
         return filename, 0, None
 
@@ -1637,7 +1648,7 @@ def generar_mapa_muestras_auditoria(
     location, geojson_file_path = coordenadas_ciudades[ciudad_norm]
 
     if df_clientes_unicos.empty:
-        mapa = folium.Map(location=location, zoom_start=12)
+        mapa = folium.Map(location=location, zoom_start=12, tiles="CartoDB positron")
         filename = guardar_mapa_controlado(mapa, tipo_mapa="mapa_muestras_auditoria", permitir_multiples=False)
         return filename, 0, None
 
@@ -1650,7 +1661,7 @@ def generar_mapa_muestras_auditoria(
         df_areas = pd.DataFrame()
         fc = {"type": "FeatureCollection", "features": []}
 
-    mapa = folium.Map(location=location, zoom_start=12)
+    mapa = folium.Map(location=location, zoom_start=12, tiles="CartoDB positron")
 
     # Cargar comunas base
     try:
