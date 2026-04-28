@@ -148,53 +148,9 @@ if st.session_state.get("last_ciudad") != ciudad:
 
 st.divider()
 
-# ── Formulario de filtros ─────────────────────────────────────────────────────
-with st.form(key="filtros_form"):
-    c1, c2 = st.columns(2)
-    with c1:
-        fecha_inicio = st.date_input("Fecha de Inicio")
-    with c2:
-        fecha_fin = st.date_input("Fecha de Fin")
+# ── Tabs principales ──────────────────────────────────────────────────────────
+tab_mapas, tab_agente = st.tabs(["🗺️ Mapa de Muestras", "🤖 Atlas Agent"])
 
-    agrupar_por = st.selectbox(
-        "Agrupar por:",
-        options=["Promotor", "Mes"],
-        index=0,
-    )
-
-    _, col_btn, _ = st.columns([1, 1, 1])
-    with col_btn:
-        submit_button = st.form_submit_button(
-            "Generar Mapa", use_container_width=True, type="primary"
-        )
-
-# ── Placeholder del link de mapa ──────────────────────────────────────────────
-link_placeholder = st.empty()
-
-# ── Descarga HTML ─────────────────────────────────────────────────────────────
-map_filename = st.session_state.get("muestras_last_filename")
-html_path    = os.path.join("static", "maps", map_filename) if map_filename else None
-
-if map_filename and html_path and os.path.exists(html_path):
-    ciudad_slug  = re.sub(r'[^A-Za-z0-9]', '', ciudad.upper()
-                          .replace('Á','A').replace('É','E')
-                          .replace('Í','I').replace('Ó','O').replace('Ú','U'))
-    filename_dl  = f"Mapa_Muestras_{ciudad_slug}_{datetime.now().strftime('%Y%m%d')}.html"
-    with open(html_path, "rb") as f:
-        html_bytes = f.read()
-    st.download_button(
-        label="📥 Descargar HTML del mapa",
-        data=html_bytes, file_name=filename_dl, mime="text/html",
-        type="secondary", use_container_width=True,
-    )
-else:
-    st.button("📥 Descargar HTML del mapa", disabled=True,
-              type="secondary", use_container_width=True,
-              help="Genera un mapa primero.")
-
-# ── Descarga CSV ──────────────────────────────────────────────────────────────
-df_export   = st.session_state.get("muestras_export_df")
-export_meta = st.session_state.get("muestras_export_meta")
 
 def _fmt_date(x) -> str:
     try:
@@ -202,98 +158,159 @@ def _fmt_date(x) -> str:
     except Exception:
         return datetime.now().strftime("%Y%m%d")
 
-if df_export is not None and not df_export.empty and export_meta:
-    ciudad_slug = re.sub(r'[^A-Za-z0-9]', '', export_meta.get("ciudad", ciudad).upper()
-                         .replace('Á','A').replace('É','E')
-                         .replace('Í','I').replace('Ó','O').replace('Ú','U'))
-    fname_csv   = (f"Muestras_{ciudad_slug}"
-                   f"_{_fmt_date(export_meta.get('fecha_inicio'))}"
-                   f"_{_fmt_date(export_meta.get('fecha_fin'))}.csv")
-    csv_data    = df_export.to_csv(index=False, sep=';').encode('utf-8-sig')
-    st.download_button(
-        label="📥 Descargar CSV (resumen de operación)",
-        data=csv_data, file_name=fname_csv, mime="text/csv",
-        type="secondary", use_container_width=True,
-    )
-else:
-    st.button("📥 Descargar CSV (resumen de operación)", disabled=True,
-              type="secondary", use_container_width=True,
-              help="Genera un mapa primero.")
 
-# ── Procesamiento ─────────────────────────────────────────────────────────────
-if submit_button:
-    try:
-        resultado = manejar_error(
-            generar_mapa_muestras_visual,
-            fecha_inicio=str(fecha_inicio),
-            fecha_fin=str(fecha_fin),
-            ciudad=ciudad,
-            agrupar_por=agrupar_por,
-            auditoria=False,
-            override_fc=None,
+# ════════════════════════════════════════════════════════════════════════
+# TAB 1 — flujo original (mapa de muestras con formulario)
+# ════════════════════════════════════════════════════════════════════════
+with tab_mapas:
+
+    # ── Formulario de filtros ─────────────────────────────────────────────────
+    with st.form(key="filtros_form"):
+        c1, c2 = st.columns(2)
+        with c1:
+            fecha_inicio = st.date_input("Fecha de Inicio")
+        with c2:
+            fecha_fin = st.date_input("Fecha de Fin")
+
+        agrupar_por = st.selectbox(
+            "Agrupar por:",
+            options=["Promotor", "Mes"],
+            index=0,
         )
-        if resultado:
-            try:
-                fname, n_puntos, df_exp = resultado
-            except Exception:
-                fname, n_puntos, df_exp = None, 0, None
 
-            if fname and os.path.exists(os.path.join("static", "maps", fname)):
-                ts      = int(time.time())
-                map_url = f"{FLASK_SERVER}/static/maps/{fname}?t={ts}"
-                st.session_state["map_url"]               = map_url
-                st.session_state["muestras_last_filename"] = fname
-                st.session_state["map_auto_opened"]        = False
-                st.session_state["muestras_export_df"]     = df_exp
-                st.session_state["muestras_export_meta"]   = {
-                    "ciudad": ciudad,
-                    "fecha_inicio": fecha_inicio,
-                    "fecha_fin":    fecha_fin,
-                }
+        _, col_btn, _ = st.columns([1, 1, 1])
+        with col_btn:
+            submit_button = st.form_submit_button(
+                "Generar Mapa", use_container_width=True, type="primary"
+            )
+
+    # ── Placeholder del link de mapa ──────────────────────────────────────────
+    link_placeholder = st.empty()
+
+    # ── Descarga HTML ─────────────────────────────────────────────────────────
+    map_filename = st.session_state.get("muestras_last_filename")
+    html_path    = os.path.join("static", "maps", map_filename) if map_filename else None
+
+    if map_filename and html_path and os.path.exists(html_path):
+        ciudad_slug  = re.sub(r'[^A-Za-z0-9]', '', ciudad.upper()
+                              .replace('Á','A').replace('É','E')
+                              .replace('Í','I').replace('Ó','O').replace('Ú','U'))
+        filename_dl  = f"Mapa_Muestras_{ciudad_slug}_{datetime.now().strftime('%Y%m%d')}.html"
+        with open(html_path, "rb") as f:
+            html_bytes = f.read()
+        st.download_button(
+            label="📥 Descargar HTML del mapa",
+            data=html_bytes, file_name=filename_dl, mime="text/html",
+            type="secondary", use_container_width=True,
+        )
+    else:
+        st.button("📥 Descargar HTML del mapa", disabled=True,
+                  type="secondary", use_container_width=True,
+                  help="Genera un mapa primero.")
+
+    # ── Descarga CSV ──────────────────────────────────────────────────────────
+    df_export   = st.session_state.get("muestras_export_df")
+    export_meta = st.session_state.get("muestras_export_meta")
+
+    if df_export is not None and not df_export.empty and export_meta:
+        ciudad_slug = re.sub(r'[^A-Za-z0-9]', '', export_meta.get("ciudad", ciudad).upper()
+                             .replace('Á','A').replace('É','E')
+                             .replace('Í','I').replace('Ó','O').replace('Ú','U'))
+        fname_csv   = (f"Muestras_{ciudad_slug}"
+                       f"_{_fmt_date(export_meta.get('fecha_inicio'))}"
+                       f"_{_fmt_date(export_meta.get('fecha_fin'))}.csv")
+        csv_data    = df_export.to_csv(index=False, sep=';').encode('utf-8-sig')
+        st.download_button(
+            label="📥 Descargar CSV (resumen de operación)",
+            data=csv_data, file_name=fname_csv, mime="text/csv",
+            type="secondary", use_container_width=True,
+        )
+    else:
+        st.button("📥 Descargar CSV (resumen de operación)", disabled=True,
+                  type="secondary", use_container_width=True,
+                  help="Genera un mapa primero.")
+
+    # ── Procesamiento ─────────────────────────────────────────────────────────
+    if submit_button:
+        try:
+            resultado = manejar_error(
+                generar_mapa_muestras_visual,
+                fecha_inicio=str(fecha_inicio),
+                fecha_fin=str(fecha_fin),
+                ciudad=ciudad,
+                agrupar_por=agrupar_por,
+                auditoria=False,
+                override_fc=None,
+            )
+            if resultado:
+                try:
+                    fname, n_puntos, df_exp = resultado
+                except Exception:
+                    fname, n_puntos, df_exp = None, 0, None
+
+                if fname and os.path.exists(os.path.join("static", "maps", fname)):
+                    ts      = int(time.time())
+                    map_url = f"{FLASK_SERVER}/static/maps/{fname}?t={ts}"
+                    st.session_state["map_url"]               = map_url
+                    st.session_state["muestras_last_filename"] = fname
+                    st.session_state["map_auto_opened"]        = False
+                    st.session_state["muestras_export_df"]     = df_exp
+                    st.session_state["muestras_export_meta"]   = {
+                        "ciudad": ciudad,
+                        "fecha_inicio": fecha_inicio,
+                        "fecha_fin":    fecha_fin,
+                    }
+                else:
+                    st.session_state["map_url"]               = None
+                    st.session_state["muestras_last_filename"] = None
+                    st.session_state["muestras_export_df"]     = None
+                    st.session_state["muestras_export_meta"]   = None
+                    link_placeholder.markdown(
+                        '<div class="muted" style="text-align:center;">'
+                        'No se generó ningún mapa. Ajusta los filtros e inténtalo de nuevo.'
+                        '</div>', unsafe_allow_html=True,
+                    )
             else:
                 st.session_state["map_url"]               = None
                 st.session_state["muestras_last_filename"] = None
                 st.session_state["muestras_export_df"]     = None
                 st.session_state["muestras_export_meta"]   = None
-                link_placeholder.markdown(
-                    '<div class="muted" style="text-align:center;">'
-                    'No se generó ningún mapa. Ajusta los filtros e inténtalo de nuevo.'
-                    '</div>', unsafe_allow_html=True,
-                )
-        else:
+
+        except _ST_STOP_EXC:
+            raise  # dejar que Streamlit gestione su propia detención
+        except Exception:
+            logging.exception("Error inesperado en submit")
+            st.error("⚠️ Se produjo un error inesperado. Revisa los logs.")
             st.session_state["map_url"]               = None
             st.session_state["muestras_last_filename"] = None
-            st.session_state["muestras_export_df"]     = None
-            st.session_state["muestras_export_meta"]   = None
 
-    except _ST_STOP_EXC:
-        raise  # dejar que Streamlit gestione su propia detención
-    except Exception:
-        logging.exception("Error inesperado en submit")
-        st.error("⚠️ Se produjo un error inesperado. Revisa los logs.")
-        st.session_state["map_url"]               = None
-        st.session_state["muestras_last_filename"] = None
+    # ── Render del mapa ───────────────────────────────────────────────────────
+    map_url = st.session_state.get("map_url")
 
-# ── Render del mapa ───────────────────────────────────────────────────────────
-map_url = st.session_state.get("map_url")
-
-if map_url:
-    if not st.session_state.get("map_auto_opened", False):
-        st.session_state["map_auto_opened"] = True
-        st.markdown(
-            f"<script>try{{window.open('{map_url}','_blank');}}catch(e){{}}</script>",
+    if map_url:
+        if not st.session_state.get("map_auto_opened", False):
+            st.session_state["map_auto_opened"] = True
+            st.markdown(
+                f"<script>try{{window.open('{map_url}','_blank');}}catch(e){{}}</script>",
+                unsafe_allow_html=True,
+            )
+        link_placeholder.markdown(
+            f'<div class="btn-row"><div>'
+            f'<a href="{map_url}" target="_blank" rel="noopener" class="pill">'
+            f'🗺️ Ver Mapa en Nueva Pestaña</a></div></div>',
             unsafe_allow_html=True,
         )
-    link_placeholder.markdown(
-        f'<div class="btn-row"><div>'
-        f'<a href="{map_url}" target="_blank" rel="noopener" class="pill">'
-        f'🗺️ Ver Mapa en Nueva Pestaña</a></div></div>',
-        unsafe_allow_html=True,
-    )
-else:
-    link_placeholder.markdown(
-        '<div class="muted" style="text-align:center;">'
-        'No se ha generado ningún mapa. Ajusta los filtros e inténtalo de nuevo.'
-        '</div>',
-        unsafe_allow_html=True,
-    )
+    else:
+        link_placeholder.markdown(
+            '<div class="muted" style="text-align:center;">'
+            'No se ha generado ningún mapa. Ajusta los filtros e inténtalo de nuevo.'
+            '</div>',
+            unsafe_allow_html=True,
+        )
+
+# ════════════════════════════════════════════════════════════════════════
+# TAB 2 — Atlas Agent chat
+# ════════════════════════════════════════════════════════════════════════
+with tab_agente:
+    from agente.atlas_chat import render_chat_tab
+    render_chat_tab(ciudad)

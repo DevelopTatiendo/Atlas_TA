@@ -3,6 +3,11 @@
 Usa la API de Claude con tool_use para responder preguntas en lenguaje natural
 sobre las métricas de promotores, mapas de cobertura y datos de clientes.
 
+Incluye:
+  - schema_context inyectado en system prompt (esquema fijo + ejemplos few-shot)
+  - ejecutar_codigo_mapa para generación dinámica de mapas Folium
+  - Banco de aprendizaje: buenas.jsonl / errores.jsonl
+
 Uso:
     from agente.atlas_agent import AtlasAgent
     agent = AtlasAgent()
@@ -25,7 +30,10 @@ _ROOT = Path(__file__).resolve().parent.parent
 if str(_ROOT) not in sys.path:
     sys.path.insert(0, str(_ROOT))
 
+
 # ── Definición de herramientas para la API ────────────────────────────────────
+
+from agente.mapa_ejecutor import TOOL_DEFINICION as _MAPA_EJECUTOR_TOOL
 
 TOOLS_DEFINICION = [
     {
@@ -157,17 +165,23 @@ TOOLS_DEFINICION = [
     {
         "name": "listar_rutas_ciudad",
         "description": (
-            "Lista rutas comerciales activas de una ciudad con métricas de actividad: "
+            "Lista rutas de cobro activas de una ciudad con métricas de actividad: "
             "n_clientes (universo), visitados_periodo, pct_cobertura, con_pedido_periodo, "
             "ultima_visita y sin_visitar (oportunidad directa). "
-            "Punto de entrada obligatorio para cualquier análisis por ruta — "
-            "úsala para identificar qué rutas tienen baja cobertura o alta oportunidad."
+            "Punto de entrada obligatorio para análisis por ruta. "
+            "Úsala para identificar qué rutas tienen baja cobertura o alta oportunidad."
         ),
         "input_schema": {
             "type": "object",
             "properties": {
-                "ciudad": {"type": "integer", "description": "id_centroope de la ciudad (3=Medellín, 2=Cali, 4=Bogotá, 5=Pereira, 6=Manizales, 7=Bucaramanga, 8=Barranquilla)."},
-                "fecha_inicio": {"type": "string", "description": "Desde cuándo medir visitas y pedidos recientes (YYYY-MM-DD, default 2026-01-01)."},
+                "ciudad": {
+                    "type": "integer",
+                    "description": "id_centroope: Cali=2, Medellín=3, Bogotá=4, Pereira=5, Manizales=6, Bucaramanga=7, Barranquilla=8.",
+                },
+                "fecha_inicio": {
+                    "type": "string",
+                    "description": "Desde cuándo medir (YYYY-MM-DD, default 2026-01-01).",
+                },
             },
             "required": ["ciudad"],
         },
@@ -175,16 +189,17 @@ TOOLS_DEFINICION = [
     {
         "name": "consultar_ruta_completa",
         "description": (
-            "Análisis profundo de una ruta comercial: universo de clientes, cobertura de visitas, conversión a pedidos, "
-            "quejas activas, productos más vendidos en la zona, oportunidades no-fieles sin visitar con coordenadas. "
-            "Esta es la herramienta central para entender qué está pasando en una ruta específica."
+            "Análisis profundo de una ruta: universo de clientes, cobertura de visitas, "
+            "conversión a pedidos, quejas activas, productos más vendidos en la zona, "
+            "oportunidades no-fieles sin visitar con coordenadas. "
+            "Herramienta central para entender qué pasa en una ruta específica."
         ),
         "input_schema": {
             "type": "object",
             "properties": {
-                "ciudad": {"type": "integer", "description": "ID numérico de la ciudad."},
+                "ciudad": {"type": "integer", "description": "id_centroope de la ciudad."},
                 "id_ruta": {"type": "integer", "description": "ID de la ruta."},
-                "nombre_ruta": {"type": "string", "description": "Nombre parcial de la ruta (alternativa a id_ruta)."},
+                "nombre_ruta": {"type": "string", "description": "Nombre parcial de la ruta."},
                 "fecha_inicio": {"type": "string", "description": "Fecha inicio YYYY-MM-DD."},
                 "fecha_fin": {"type": "string", "description": "Fecha fin YYYY-MM-DD."},
             },
@@ -194,15 +209,15 @@ TOOLS_DEFINICION = [
     {
         "name": "analizar_zona_promotor",
         "description": (
-            "Análisis del territorio real cubierto por un promotor: área en km² recorrida, distancia total, "
-            "clientes visitados vs clientes en la zona sin visitar (del cache), productos más pedidos, "
-            "quejas activas en esa zona. Úsala para entender si un promotor está optimizando su territorio."
+            "Análisis del territorio real de un promotor: área recorrida, distancia, "
+            "clientes visitados vs sin visitar en la zona, productos más pedidos, "
+            "quejas activas. Úsala para ver si un promotor está optimizando su territorio."
         ),
         "input_schema": {
             "type": "object",
             "properties": {
                 "id_promotor": {"type": "integer", "description": "ID del promotor."},
-                "ciudad": {"type": "integer", "description": "ID numérico de la ciudad."},
+                "ciudad": {"type": "integer", "description": "id_centroope de la ciudad."},
                 "fecha_inicio": {"type": "string", "description": "Fecha inicio YYYY-MM-DD."},
                 "fecha_fin": {"type": "string", "description": "Fecha fin YYYY-MM-DD."},
             },
@@ -212,9 +227,9 @@ TOOLS_DEFINICION = [
     {
         "name": "explorar_tabla",
         "description": (
-            "El agente usa esto para explorar la BD de forma autónoma: listar tablas, ver columnas, "
-            "contar registros, explorar dominios de columnas, o ejecutar un SELECT personalizado. "
-            "Usar cuando el agente necesite entender la estructura antes de construir una consulta compleja. "
+            "Exploración autónoma de la BD: listar tablas, ver columnas, contar registros, "
+            "explorar dominios, o ejecutar un SELECT personalizado. "
+            "Usar cuando necesites entender la estructura antes de construir una consulta. "
             "NUNCA ejecuta escrituras — solo SELECT y SHOW."
         ),
         "input_schema": {
@@ -225,12 +240,12 @@ TOOLS_DEFINICION = [
                     "enum": ["listar_tablas", "describir_tabla", "muestra", "contar", "explorar_columna", "select"],
                     "description": "Qué operación ejecutar.",
                 },
-                "tabla": {"type": "string", "description": "Nombre de la tabla (para describir, muestra, contar, explorar_columna)."},
+                "tabla": {"type": "string", "description": "Nombre de la tabla."},
                 "schema": {"type": "string", "description": "Base de datos (default: fullclean_contactos)."},
-                "columna": {"type": "string", "description": "Nombre de columna (para explorar_columna)."},
-                "sql": {"type": "string", "description": "Consulta SELECT para accion=select."},
-                "filtro": {"type": "string", "description": "Cláusula WHERE para muestra/contar (solo texto de condición, sin WHERE)."},
-                "limite": {"type": "integer", "description": "Límite de filas (default: 5 para muestra, 200 para select)."},
+                "columna": {"type": "string", "description": "Columna para explorar_columna."},
+                "sql": {"type": "string", "description": "Query SELECT para accion=select."},
+                "filtro": {"type": "string", "description": "Cláusula WHERE (solo condición, sin WHERE)."},
+                "limite": {"type": "integer", "description": "Límite de filas."},
             },
             "required": ["accion"],
         },
@@ -238,75 +253,87 @@ TOOLS_DEFINICION = [
     {
         "name": "actualizar_cache_coordenadas",
         "description": (
-            "Actualiza el cache local de coordenadas de clientes consultando eventos recientes de la BD. "
+            "Actualiza el cache local de coordenadas de clientes. "
             "Llamar antes de analizar_zona_promotor o cuando se quiera enriquecer el mapa simulado. "
-            "El cache acumula coordenadas con cada actualización — mejora con el tiempo."
+            "El cache acumula coordenadas — mejora con el tiempo."
         ),
         "input_schema": {
             "type": "object",
             "properties": {
-                "ciudad": {"type": "integer", "description": "ID de ciudad (default: 3 = Medellín)."},
+                "ciudad": {"type": "integer", "description": "id_centroope (default: 3 = Medellín)."},
                 "fecha_inicio": {"type": "string", "description": "Fecha desde (YYYY-MM-DD)."},
                 "fecha_fin": {"type": "string", "description": "Fecha hasta (YYYY-MM-DD, default: hoy)."},
             },
             "required": [],
         },
     },
+    # Herramienta de código dinámico — importada desde mapa_ejecutor.py
+    _MAPA_EJECUTOR_TOOL,
 ]
 
 
-# ── Sistema de contexto de negocio ────────────────────────────────────────────
+# ── System Prompt con schema context ─────────────────────────────────────────
 
-SYSTEM_PROMPT = """Eres Atlas Agent, el asistente de inteligencia operacional de T Atiendo S.A.
+def _build_system_prompt() -> str:
+    """Construye el system prompt inyectando el schema context y ejemplos."""
+    from agente.schema_context import get_full_context
+    schema_ctx = get_full_context()
 
-Tu misión es analizar la operación de campo de promotores que entregan muestras físicas en 7 ciudades de Colombia, cruzando datos de visitas, pedidos, llamadas, quejas y territorios para encontrar oportunidades comerciales y alertas que los humanos no detectan fácilmente.
+    return f"""Eres Atlas Agent, el asistente de inteligencia operacional de T Atiendo S.A.
 
-CIUDADES: Cali (2), Medellín (3), Bogotá (4), Pereira (5), Manizales (6), Bucaramanga (7), Barranquilla (8).
+Tu misión: analizar la operación de campo de promotores que entregan muestras físicas en 7 ciudades de Colombia, cruzando datos de visitas, pedidos, llamadas, quejas y territorios para detectar oportunidades y alertas que los humanos no ven.
+
+CIUDADES (id_centroope): Cali=2, Medellín=3, Bogotá=4, Pereira=5, Manizales=6, Bucaramanga=7, Barranquilla=8.
 
 GLOSARIO OPERACIONAL:
-- Ruta: territorio comercial definido por barrios. Unidad principal de análisis.
-- Muestra/Evento: visita del promotor a un cliente para entregar muestra física.
-- No-fiel: cliente cuya categoría NO es Ticket (58-60) ni Frecuente (42, 55). Mayor potencial de conquista.
-- Contactabilidad real: llamadas con contestada=1 en llamadas_respuestas (NO usar contactos.ultima_llamada).
-- Captación: visitados que son no-fieles Y contestaron llamada posterior.
-- Conversión: de los que contestaron, cuántos generaron pedido (es_venta=1), solo si la llamada fue POSTERIOR a la muestra.
-- Cache de coordenadas: archivo local que acumula coordenadas de clientes de visitas históricas. Mejora con cada actualización.
+- Muestra/Evento: visita del promotor a un cliente para entregar muestra física (tabla vwEventos).
+- No-fiel: cliente con id_categoria NOT IN (42, 55, 58, 59, 60). Mayor potencial de conquista.
+- Contactabilidad real: llamadas_respuestas.contestada = 1 (NO usar contactos.ultima_llamada).
+- Captación: visitados no-fieles que además contestaron llamada posterior a la muestra.
+- Conversión: de los que contestaron, cuántos generaron pedido (es_venta=1) después de la muestra.
+- Cache coordenadas: archivo local con GPS de clientes. Actualizar con actualizar_cache_coordenadas.
 
-CÓMO PENSAR Y ACTUAR:
-1. EXPLORA ANTES DE ANALIZAR: Si no conoces una tabla, usa explorar_tabla para ver sus columnas y un sample. No asumas estructuras.
-2. LA RUTA ES TU UNIDAD: Siempre enmarca el análisis a nivel de ruta, no solo ciudad o promotor.
-3. CRUZA DATOS: Un hallazgo vale solo si está respaldado por al menos 2 fuentes (ej: visitas + pedidos, quejas + zona geográfica).
-4. USA EL CACHE DE COORDENADAS: Para análisis de zona, llama actualizar_cache_coordenadas primero si no hay datos recientes.
-5. NEVER INVENTES DATOS: Si la BD no lo dice, no lo digas. Indica cuando hay incertidumbre.
-6. SOLO SELECT/SHOW: Nunca sugieras ni ejecutes escrituras en BD.
+FLUJO DE TRABAJO:
+1. Si el usuario pregunta por una ciudad → llama listar_rutas_ciudad primero.
+2. Si pide análisis de ruta específica → consultar_ruta_completa.
+3. Si pide un mapa → usa ejecutar_codigo_mapa generando el código Python+Folium tú mismo.
+4. Si necesitas entender una tabla nueva → explorar_tabla antes de asumir columnas.
+5. NUNCA inventes datos. Si no tienes certeza, dilo y sugiere qué herramienta llamar.
+6. SOLO SELECT/SHOW en BD.
+
+REGLAS PARA ejecutar_codigo_mapa:
+- El código DEBE asignar el mapa Folium a la variable `mapa`.
+- NO llamar mapa.save() — el ejecutor lo hace solo.
+- Usar tiles Esri: tiles='https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{{z}}/{{y}}/{{x}}', attr='Esri'
+- Usar sql_read(sql_string, schema='fullclean_contactos') para queries.
+- Aplicar TODOS los gotchas del esquema (CAST coords, JOIN ciudades, columnas correctas).
 
 FORMATO DE RESPUESTA:
-- Máximo 3 párrafos cortos. Sin tablas largas ni bullet points excesivos.
+- Máximo 3 párrafos. Sin tablas largas. Sin bullets excesivos.
 - Primero los números clave. Luego la interpretación. Luego la acción concreta.
-- Si generaste un mapa, di la ruta del archivo y qué muestra. Nada más.
-- Si no tienes datos suficientes, dilo en una línea y sugiere qué herramienta llamar.
+- Si generaste mapa: indica la ruta del HTML y en una línea qué muestra.
+- Si faltan datos: una línea explicando qué herramienta resolvería el vacío.
 
-EJEMPLO DE INSIGHT BUENO:
-"En la Ruta 7 hay 134 clientes no-fieles sin visitar este mes. De ellos, 89 tienen coordenadas conocidas y están concentrados en el barrio Laureles Norte. Ese barrio tiene 12 quejas activas de tipo 'producto no llegó' — posible problema de logística que puede estar afectando la disposición del cliente. Si se corrige y se visita ese cluster, el potencial de captación estimado es de 15-20 pedidos adicionales."
+EJEMPLO INSIGHT BUENO:
+"Ruta Laureles tiene 134 no-fieles sin visitar este mes. De ellos, 89 tienen coordenadas concentradas en Laureles Norte, que además acumula 12 quejas de 'producto no llegó'. Corrección logística + visita a ese cluster = 15-20 pedidos potenciales."
 
-EJEMPLO DE INSIGHT MALO (no hagas esto):
-"La Ruta 7 tiene baja cobertura. Se recomienda visitar más clientes."
+{schema_ctx}
 """
 
 
 # ── Dispatcher de herramientas ────────────────────────────────────────────────
 
 def _ejecutar_herramienta(nombre: str, argumentos: dict) -> Any:
-    """Llama a la función correspondiente en herramientas.py."""
+    """Llama a la función correspondiente según el nombre de herramienta."""
     from agente import herramientas as h
-
     from agente import analisis_ruta as ar
     from agente import explorar_bd as eb
     from agente.coordinate_cache import CoordinateCache
+    from agente.mapa_ejecutor import ejecutar_codigo_mapa
 
     def _explorar_tabla(**kwargs):
         accion = kwargs.get("accion")
-        tabla = kwargs.get("tabla", "")
+        tabla  = kwargs.get("tabla", "")
         schema = kwargs.get("schema", "fullclean_contactos")
         if accion == "listar_tablas":
             return eb.listar_tablas(schema)
@@ -331,18 +358,18 @@ def _ejecutar_herramienta(nombre: str, argumentos: dict) -> Any:
         )
 
     mapa_funciones = {
-        "consultar_metricas": h.consultar_metricas,
-        "generar_mapa": h.generar_mapa,
-        "capturar_mapa": h.capturar_mapa,
-        "comparar_ciudades": h.comparar_ciudades,
-        "consultar_cliente": h.consultar_cliente,
-        "listar_promotores_activos": h.listar_promotores_activos,
-        # Nuevas herramientas de análisis por ruta
-        "listar_rutas_ciudad": ar.listar_rutas_ciudad,
-        "consultar_ruta_completa": ar.consultar_ruta_completa,
-        "analizar_zona_promotor": ar.analizar_zona_promotor,
-        "explorar_tabla": _explorar_tabla,
+        "consultar_metricas":         h.consultar_metricas,
+        "generar_mapa":               h.generar_mapa,
+        "capturar_mapa":              h.capturar_mapa,
+        "comparar_ciudades":          h.comparar_ciudades,
+        "consultar_cliente":          h.consultar_cliente,
+        "listar_promotores_activos":  h.listar_promotores_activos,
+        "listar_rutas_ciudad":        ar.listar_rutas_ciudad,
+        "consultar_ruta_completa":    ar.consultar_ruta_completa,
+        "analizar_zona_promotor":     ar.analizar_zona_promotor,
+        "explorar_tabla":             _explorar_tabla,
         "actualizar_cache_coordenadas": _actualizar_cache,
+        "ejecutar_codigo_mapa":       ejecutar_codigo_mapa,
     }
 
     if nombre not in mapa_funciones:
@@ -351,7 +378,13 @@ def _ejecutar_herramienta(nombre: str, argumentos: dict) -> Any:
     try:
         return mapa_funciones[nombre](**argumentos)
     except Exception as e:
-        return {"error": str(e), "herramienta": nombre, "args": argumentos}
+        import traceback
+        return {
+            "error": str(e),
+            "traceback": traceback.format_exc(),
+            "herramienta": nombre,
+            "args": argumentos,
+        }
 
 
 # ── Clase principal del agente ────────────────────────────────────────────────
@@ -359,7 +392,8 @@ def _ejecutar_herramienta(nombre: str, argumentos: dict) -> Any:
 class AtlasAgent:
     """Agente conversacional para Atlas TA.
 
-    Mantiene historial de conversación y ejecuta herramientas según necesite.
+    Mantiene historial de conversación, inyecta schema context en el primer mensaje
+    y ejecuta herramientas según necesite (incluida generación dinámica de mapas).
     """
 
     def __init__(self, model: str = "claude-sonnet-4-6"):
@@ -375,12 +409,16 @@ class AtlasAgent:
         if not api_key:
             raise EnvironmentError(
                 "Variable ANTHROPIC_API_KEY no definida. "
-                "Agrégala a config/.env o como variable del sistema."
+                "Agrégala al archivo .env en la raíz del proyecto."
             )
 
-        self._client = anthropic.Anthropic(api_key=api_key)
-        self._model = model
+        self._client    = anthropic.Anthropic(api_key=api_key)
+        self._model     = model
         self._historial: list[dict] = []
+        # System prompt construido una vez por sesión (incluye schema context + ejemplos)
+        self._system    = _build_system_prompt()
+        # Último mapa generado (ruta al HTML). Lo consume atlas_chat.py tras cada respuesta.
+        self._ultimo_mapa: str | None = None
 
     def preguntar(self, mensaje: str) -> str:
         """Envía un mensaje al agente y devuelve la respuesta como texto.
@@ -400,52 +438,61 @@ class AtlasAgent:
             respuesta = self._client.messages.create(
                 model=self._model,
                 max_tokens=1800,
-                system=SYSTEM_PROMPT,
+                system=self._system,
                 tools=TOOLS_DEFINICION,
                 messages=self._historial,
             )
 
-            # Si el agente quiere usar herramientas
+            # ── El agente quiere usar herramientas ──────────────────────────
             if respuesta.stop_reason == "tool_use":
-                # Registrar respuesta del asistente con las tool calls
                 self._historial.append({
                     "role": "assistant",
                     "content": respuesta.content,
                 })
 
-                # Ejecutar cada herramienta y recopilar resultados
                 tool_results = []
                 for bloque in respuesta.content:
                     if bloque.type == "tool_use":
-                        print(f"[Atlas Agent] → {bloque.name}({json.dumps(bloque.input, ensure_ascii=False)[:80]}...)")
+                        args_preview = json.dumps(bloque.input, ensure_ascii=False)[:80]
+                        print(f"  [→ {bloque.name}] {args_preview}...")
                         resultado = _ejecutar_herramienta(bloque.name, bloque.input)
+                        # Registrar último mapa generado para que la UI pueda accederlo
+                        if bloque.name == "ejecutar_codigo_mapa" and isinstance(resultado, dict) and resultado.get("ok"):
+                            self._ultimo_mapa = resultado.get("html_path")
                         tool_results.append({
                             "type": "tool_result",
                             "tool_use_id": bloque.id,
                             "content": json.dumps(resultado, ensure_ascii=False, default=str),
                         })
 
-                # Devolver resultados al agente para que continúe
                 self._historial.append({
                     "role": "user",
                     "content": tool_results,
                 })
-                # Continuar el loop hasta stop_reason == "end_turn"
+                # Continuar el loop — el agente puede usar más herramientas
 
+            # ── Respuesta final de texto ────────────────────────────────────
             elif respuesta.stop_reason == "end_turn":
-                # Respuesta final de texto
                 texto = ""
                 for bloque in respuesta.content:
                     if hasattr(bloque, "text"):
                         texto += bloque.text
-                self._historial.append({"role": "assistant", "content": texto})
+
+                self._historial.append({
+                    "role": "assistant",
+                    "content": texto,
+                })
                 return texto
 
+            # ── Caso inesperado ─────────────────────────────────────────────
             else:
-                # Caso inesperado
-                return f"[stop_reason inesperado: {respuesta.stop_reason}]"
+                return f"[Agente detuvo con stop_reason inesperado: {respuesta.stop_reason}]"
 
-    def limpiar_historial(self):
-        """Limpia el historial para empezar una conversación nueva."""
+    def limpiar_historial(self) -> None:
+        """Reinicia el historial de conversación (nueva sesión)."""
         self._historial = []
-        print("[Atlas Agent] Historial limpiado.")
+        self._ultimo_mapa = None
+
+    def recargar_contexto(self) -> None:
+        """Recarga el system prompt (útil si se agregaron nuevos ejemplos al banco)."""
+        self._system = _build_system_prompt()
