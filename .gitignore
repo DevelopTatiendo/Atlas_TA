@@ -79,6 +79,7 @@ desktop.ini
 # Mapas HTML generados por la app (mantén solo los de esta carpeta)
 static/maps/*.html
 static/maps/*.png
+static/datos/* # Si esta carpeta contiene datos generados que no quieres versionar
 static/datos/*
 
 # Cache de coordenadas — datos derivados + PII (coordenadas reales de clientes)

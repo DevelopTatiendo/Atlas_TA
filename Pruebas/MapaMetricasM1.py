@@ -451,7 +451,7 @@ def _export_subclusters_kmeans(
 
     # Si muy pocos tras poda
     center = [float(latlon[:,0].mean()), float(latlon[:,1].mean())] if len(latlon) else [0,0]
-    m = folium.Map(location=center, zoom_start=13, zoom_control=False)
+    m = folium.Map(location=center, zoom_start=13, tiles="https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}", attr="Esri", zoom_control=False)
     # Capa base de rutas (opcional)
     try:
         _add_rutas_layer(m)
@@ -551,7 +551,7 @@ def _export_subclusters_kmeans(
                     # preview HTML: puntos del subcluster (prunado), centroide y caja con q70 y n
                     latlon_sc = df_iso_pruned[["_lat","_lon"]].to_numpy(float)
                     center_sc = [float(latlon_sc[:,0].mean()), float(latlon_sc[:,1].mean())] if len(latlon_sc) else [0,0]
-                    m2 = folium.Map(location=center_sc, zoom_start=13, zoom_control=False)
+                    m2 = folium.Map(location=center_sc, zoom_start=13, tiles="https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}", attr="Esri", zoom_control=False)
                     try:
                         _add_rutas_layer(m2)
                     except Exception:
@@ -863,7 +863,7 @@ def main():
 
     if df.empty:
         logging.warning("DF vacío: se generará mapa sin puntos.")
-        mapa = folium.Map(location=_cfg["center"], zoom_start=12, zoom_control=False)
+        mapa = folium.Map(location=_cfg["center"], zoom_start=12, tiles="https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}", attr="Esri", zoom_control=False)
         mapa.save(HTML_OUT)
         pd.DataFrame().to_csv(CSV_OUT, index=False, sep=";", encoding="utf-8-sig")
         print(f"HTML vacío: {HTML_OUT}")
@@ -880,7 +880,7 @@ def main():
         df = _resolver_lat_lon(df)
     except Exception as e:
         logging.error(f"Abortando: {e}")
-        mapa = folium.Map(location=_cfg["center"], zoom_start=12, zoom_control=False)
+        mapa = folium.Map(location=_cfg["center"], zoom_start=12, tiles="https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}", attr="Esri", zoom_control=False)
         folium.Marker(location=_cfg["center"], popup="Sin columnas lat/lon válidas").add_to(mapa)
         mapa.save(HTML_OUT)
         df.to_csv(CSV_OUT, index=False, sep=";", encoding="utf-8-sig")
@@ -898,7 +898,7 @@ def main():
         logging.error(f"No fue posible guardar CSV: {e}")
 
     # Construir mapa base
-    mapa = folium.Map(location=_cfg["center"], zoom_start=12, zoom_control=False)
+    mapa = folium.Map(location=_cfg["center"], zoom_start=12, tiles="https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}", attr="Esri", zoom_control=False)
 
     # Cargar GeoJSON de rutas de la ciudad (opcional)
     try:
@@ -1069,7 +1069,7 @@ def main():
                             # Use iloc (positional) instead of loc (label-based) to avoid KeyError when df_c has non-range index
                             latlon_sc = df_c.iloc[idx_p[mask_sub]][["_lat","_lon"]].to_numpy(float)
                             center_sc = [float(latlon_sc[:,0].mean()), float(latlon_sc[:,1].mean())] if len(latlon_sc) else _cfg["center"]
-                            ma = folium.Map(location=center_sc, zoom_start=13, zoom_control=False)
+                            ma = folium.Map(location=center_sc, zoom_start=13, tiles="https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}", attr="Esri", zoom_control=False)
                             try:
                                 _add_rutas_layer(ma)
                             except Exception:
