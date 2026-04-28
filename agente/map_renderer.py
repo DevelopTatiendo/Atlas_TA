@@ -62,12 +62,13 @@ def _nombre_archivo(nombre: str) -> str:
 
 
 def _centro(df: pd.DataFrame, ciudad_id: int | None) -> tuple[float, float]:
-    """Calcula el centro del mapa a partir del DataFrame o usa el default de la ciudad."""
+    """Centro del mapa: siempre el CO seleccionado en el sidebar (ciudad_id).
+    Solo si ciudad_id no está disponible, cae al centroide de los datos."""
+    if ciudad_id and ciudad_id in _CENTROS:
+        return _CENTROS[ciudad_id]
     df_geo = df[df["lat"].notna() & df["lon"].notna()]
     if not df_geo.empty:
         return float(df_geo["lat"].mean()), float(df_geo["lon"].mean())
-    if ciudad_id and ciudad_id in _CENTROS:
-        return _CENTROS[ciudad_id]
     return (4.5709, -74.2973)  # Colombia centro
 
 
@@ -111,11 +112,12 @@ def _render_puntos_bicolor(mapa, df: pd.DataFrame, campo_color: str,
         color = color_verdadero if val else color_falso
         folium.CircleMarker(
             location=[row["lat"], row["lon"]],
-            radius=7,
+            radius=5,
             color=color,
+            weight=1,
             fill=True,
             fill_color=color,
-            fill_opacity=0.75,
+            fill_opacity=0.80,
             popup=folium.Popup(_popup_text(row), max_width=250),
         ).add_to(mapa)
         n += 1
@@ -124,14 +126,23 @@ def _render_puntos_bicolor(mapa, df: pd.DataFrame, campo_color: str,
 
 def _render_circulos_proporcionales(mapa, df: pd.DataFrame, campo_valor: str,
                                     color: str = "#DC2626") -> int:
-    """Círculos cuyo radio es proporcional a campo_valor."""
+    """Círculos con radio en píxeles (4–9px) proporcional a campo_valor.
+
+    Usa CircleMarker (píxeles fijos en pantalla) — nunca Circle (metros geográficos).
+    Los clientes individuales se ven como puntos pequeños, no como globos enormes.
+    """
     import folium
     vals_validos = pd.to_numeric(df[campo_valor], errors="coerce").dropna()
     if vals_validos.empty:
         return 0
 
-    vmax = float(vals_validos.quantile(0.95))  # percentil 95 para evitar outliers gigantes
+    # Percentil 95 como máximo para evitar que outliers dominen la escala
+    vmax = float(vals_validos.quantile(0.95))
     vmin = float(vals_validos.min())
+    rango = vmax - vmin if vmax > vmin else 1
+
+    # Radio en píxeles: mínimo 4px, máximo 9px
+    _R_MIN, _R_MAX = 4, 9
 
     n = 0
     for _, row in df.iterrows():
@@ -140,17 +151,18 @@ def _render_circulos_proporcionales(mapa, df: pd.DataFrame, campo_valor: str,
         val = pd.to_numeric(row.get(campo_valor, 0), errors="coerce")
         if pd.isna(val) or val <= 0:
             continue
-        # Radio: 6–40 metros de visualización (Folium usa metros reales)
-        radio = 6 + 34 * ((float(val) - vmin) / (vmax - vmin + 1))
-        radio = max(6, min(40, radio)) * 25  # escalar a metros aprox
+        # Normalizar al rango [0, 1] y mapear a [_R_MIN, _R_MAX]
+        t     = min(1.0, max(0.0, (float(val) - vmin) / rango))
+        radio = _R_MIN + (_R_MAX - _R_MIN) * t
 
-        folium.Circle(
+        folium.CircleMarker(
             location=[row["lat"], row["lon"]],
             radius=radio,
             color=color,
+            weight=1,
             fill=True,
             fill_color=color,
-            fill_opacity=0.45,
+            fill_opacity=0.70,
             popup=folium.Popup(_popup_text(row), max_width=250),
         ).add_to(mapa)
         n += 1

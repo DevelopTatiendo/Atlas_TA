@@ -138,10 +138,28 @@ def calcular_kpis(
         col_lower = col.lower()
         serie = df[col]
 
-        # — Columnas monetarias —
+        # — Columnas de conteo — PRIMERO (antes que monetarias, para evitar falsos positivos
+        #   como 'total_pedidos', 'n_visitas', 'cant_clientes' que no son valores monetarios)
+        if _CONTEOS.search(col_lower):
+            num = pd.to_numeric(serie, errors="coerce").dropna()
+            if num.empty:
+                continue
+            label = col.replace("_", " ").title()
+            kpis += [
+                {"nombre": f"{label} — Total",    "valor": int(num.sum()),   "valor_fmt": f"{int(num.sum()):,}",  "fmt": "entero", "grupo": col},
+                {"nombre": f"{label} — Promedio", "valor": round(num.mean(), 1), "valor_fmt": f"{num.mean():.1f}", "fmt": "decimal", "grupo": col},
+            ]
+            continue
+
+        # — Columnas monetarias — solo si NO son conteos
+        #   Requiere: patrón monetario en nombre Y valores numéricos con media >= 100
+        #   (descarta conteos de pedidos, visitas, etc. que pueden tener 'total' en el nombre)
         if _MONETARIAS.search(col_lower):
             num = pd.to_numeric(serie, errors="coerce").dropna()
             if num.empty:
+                continue
+            # Guardia: si la media es < 100 probablemente no es un valor monetario
+            if num.mean() < 100:
                 continue
             label = col.replace("_", " ").title()
             kpis += [
@@ -171,6 +189,9 @@ def calcular_kpis(
             num = pd.to_numeric(serie, errors="coerce").dropna()
             if num.empty:
                 continue
+            # Guardia: valores > 1e9 son probablemente timestamps epoch (ms o s), no días
+            if num.mean() > 1_000_000_000:
+                continue
             label = col.replace("_", " ").title()
             kpis += [
                 {"nombre": f"{label} — Promedio", "valor": round(num.mean(), 0), "valor_fmt": f"{num.mean():.0f} días", "fmt": "dias", "grupo": col},
@@ -193,17 +214,6 @@ def calcular_kpis(
                 pass
             continue
 
-        # — Columnas de conteo —
-        if _CONTEOS.search(col_lower):
-            num = pd.to_numeric(serie, errors="coerce").dropna()
-            if num.empty:
-                continue
-            label = col.replace("_", " ").title()
-            kpis += [
-                {"nombre": f"{label} — Total",    "valor": int(num.sum()),   "valor_fmt": f"{int(num.sum()):,}",  "fmt": "entero", "grupo": col},
-                {"nombre": f"{label} — Promedio", "valor": round(num.mean(), 1), "valor_fmt": f"{num.mean():.1f}", "fmt": "decimal", "grupo": col},
-            ]
-            continue
 
     return kpis
 
