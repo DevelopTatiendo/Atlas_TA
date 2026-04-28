@@ -80,6 +80,10 @@ desktop.ini
 static/maps/*.html
 static/maps/*.png
 
+# Cache de coordenadas — datos derivados + PII (coordenadas reales de clientes)
+# Se genera automáticamente con cada ejecución del mapa. No va al repo.
+static/datos/coordinate_cache.json
+
 Pruebas/Resultados M1/**
 Pruebas/Resultados M1/*.html
 Pruebas/Resultados M1/*.csv
@@ -126,5 +130,4 @@ scratch/
 *.stackdump
 
 # Contenedores
-docker-compose.override.yml
-
+docker-compo
