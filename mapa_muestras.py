@@ -338,7 +338,7 @@ def _render_legend_html_muestras(lista_structs: list[dict], titulo: str, label_c
                 <th style='text-align:right; padding:6px 8px; border-bottom:1px solid #eee;' title='Clientes que aún no tienen relación activa con la empresa (no son Ticket, Frecuente ni Especial). Son el público objetivo de la muestra.' data-type='percent'>% No fieles</th>
                 <th style='text-align:right; padding:6px 8px; border-bottom:1px solid #eee;' title='De todos los clientes visitados, cuántos contestaron al menos una llamada después de recibir la muestra. Solo cuentan llamadas posteriores a la fecha de visita.' data-type='percent'>% Contactabilidad</th>
                 <th style='text-align:right; padding:6px 8px; border-bottom:1px solid #eee;' title='De los clientes nuevos (no fieles) que visité, cuántos contestaron el teléfono después de la muestra. Mide qué tan alcanzable es ese segmento para telemercadeo.' data-type='percent'>% Contactab. No Fieles</th>
-                <th style='text-align:right; padding:6px 8px; border-bottom:1px solid #eee;' title='De cada 100 clientes visitados (nuevos y fieles), cuántos son nuevos Y además contestaron. Es la tasa de captación real: visita + contacto telefónico efectivo.' data-type='percent'>% Captación</th>
+                <th style='text-align:right; padding:6px 8px; border-bottom:1px solid #eee;' title='De los  clientes cuántos son nuevos Y además contestaron. Es la tasa de captación ' data-type='percent'>% Captación</th>
                 <th style='text-align:right; padding:6px 8px; border-bottom:1px solid #eee;' title='De los clientes que contestaron después de la muestra, cuántos terminaron comprando. Mide qué tan efectivo fue el cierre de telemercadeo una vez logrado el contacto.' data-type='percent'>% Conversión</th>
               </tr>
             </thead>
@@ -959,7 +959,7 @@ def generar_mapa_muestras_visual(
 ):
     ciudad_norm = _normalizar_ciudad(ciudad)
     if ciudad_norm not in CENTROOPES or ciudad_norm not in coordenadas_ciudades:
-        mapa = folium.Map(location=[4.7110, -74.0721], zoom_start=12)
+        mapa = folium.Map(location=[4.7110, -74.0721], zoom_start=12, tiles="https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}", attr="Esri")
         filename = guardar_mapa_controlado(mapa, tipo_mapa="mapa_muestras", permitir_multiples=False)
         return filename, 0, None
 
@@ -980,12 +980,12 @@ def generar_mapa_muestras_visual(
 
     # Chequeo vacío
     if df_original is None or df_original.empty:
-        mapa = folium.Map(location=location, zoom_start=12)
+        mapa = folium.Map(location=location, zoom_start=12, tiles="https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}", attr="Esri")
         filename = guardar_mapa_controlado(mapa, tipo_mapa="mapa_muestras", permitir_multiples=False)
         return filename, 0, None
 
     # Crear mapa base
-    mapa = folium.Map(location=location, zoom_start=12)
+    mapa = folium.Map(location=location, zoom_start=12, tiles="https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}", attr="Esri")
     # CSS z-index
     zindex_css = """
     <style>
@@ -1465,6 +1465,17 @@ def generar_mapa_muestras_visual(
     print(f"  {'TOTAL end-to-end':.<30} {_total_visual:>6.2f} s\n")
 
     n_puntos = len(df_filtrado) if not df_filtrado.empty else 0
+
+    # ── Enriquecer cache de coordenadas en segundo plano ─────────────────────
+    # Cada vez que se genera un mapa, las coordenadas de esta sesión
+    # alimentan el mapa simulado acumulado. Esto ocurre siempre, automáticamente.
+    try:
+        from agente.coordinate_cache import CoordinateCache
+        _cache = CoordinateCache()
+        _cache.actualizar_desde_eventos_df(df_filtrado)
+    except Exception as _ce:
+        pass  # El cache es opcional — si falla, el mapa igual se genera
+
     return filename, n_puntos, df_csv
 
 
@@ -1621,7 +1632,7 @@ def generar_mapa_muestras_auditoria(
     """
     ciudad_norm = _normalizar_ciudad(ciudad)
     if ciudad_norm not in CENTROOPES or ciudad_norm not in coordenadas_ciudades:
-        mapa = folium.Map(location=[4.7110, -74.0721], zoom_start=12)
+        mapa = folium.Map(location=[4.7110, -74.0721], zoom_start=12, tiles="https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}", attr="Esri")
         filename = guardar_mapa_controlado(mapa, tipo_mapa="mapa_muestras_auditoria", permitir_multiples=False)
         return filename, 0, None
 
@@ -1637,7 +1648,7 @@ def generar_mapa_muestras_auditoria(
     location, geojson_file_path = coordenadas_ciudades[ciudad_norm]
 
     if df_clientes_unicos.empty:
-        mapa = folium.Map(location=location, zoom_start=12)
+        mapa = folium.Map(location=location, zoom_start=12, tiles="https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}", attr="Esri")
         filename = guardar_mapa_controlado(mapa, tipo_mapa="mapa_muestras_auditoria", permitir_multiples=False)
         return filename, 0, None
 
@@ -1650,7 +1661,7 @@ def generar_mapa_muestras_auditoria(
         df_areas = pd.DataFrame()
         fc = {"type": "FeatureCollection", "features": []}
 
-    mapa = folium.Map(location=location, zoom_start=12)
+    mapa = folium.Map(location=location, zoom_start=12, tiles="https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}", attr="Esri")
 
     # Cargar comunas base
     try:
@@ -1714,29 +1725,11 @@ def generar_mapa_muestras_auditoria(
 
     # Control de capas
     try:
-        from folium.plugins import TreeLayerControl as _TLC
-        _TLC(collapsed=True, position='topright').add_to(mapa)
+        from folium.plugins import TreeLayer  # noqa: F401 — disponible en folium >= 0.14
+        folium.LayerControl(collapsed=False).add_to(mapa)
     except Exception:
-        folium.LayerControl(collapsed=True, position='topright').add_to(mapa)
-
-    # Leyenda / resumen
-    if agrupar_por == 'Promotor':
-        encabezado = f"Auditoría Promotor {valor_filtro}" if valor_filtro is not None else "Auditoría Promotor"
-    else:
-        nombre_mes = {1:"Enero",2:"Febrero",3:"Marzo",4:"Abril",5:"Mayo",6:"Junio",7:"Julio",8:"Agosto",9:"Septiembre",10:"Octubre",11:"Noviembre",12:"Diciembre"}.get(int(valor_filtro), str(valor_filtro))
-        encabezado = f"Auditoría Mes {nombre_mes}" if valor_filtro is not None else "Auditoría Mes"
-
-    total_clientes = int(df_clientes_unicos['id_contacto'].nunique()) if 'id_contacto' in df_clientes_unicos.columns else len(df_clientes_unicos)
-    resumen_html = f"""
-    <div style='position:fixed;top:20px;left:20px;z-index:1000;background:white;border:1px solid #e5e7eb;border-radius:8px;padding:12px;box-shadow:0 4px 12px rgba(0,0,0,.12);font-size:13px;font-family:Inter,system-ui;min-width:240px;'>
-      <div style='font-weight:600;margin-bottom:4px;'>{encabezado}</div>
-      <div style='color:#374151;margin-bottom:6px;'>{fecha_inicio} → {fecha_fin}</div>
-      <div style='margin-bottom:4px;'>Clientes únicos (Clientes X Muestras): <b>{total_clientes}</b></div>
-      <div style='font-size:12px;color:#6B7280;'>Subclusters: {len(fc.get('features', []))}</div>
-    </div>
-    """
-    mapa.get_root().html.add_child(folium.Element(resumen_html))
+        folium.LayerControl(collapsed=False).add_to(mapa)
 
     filename = guardar_mapa_controlado(mapa, tipo_mapa="mapa_muestras_auditoria", permitir_multiples=False)
-    total_puntos = len(df_clientes_unicos)
-    return filename, total_puntos, df_areas
+    n_puntos_total = len(df_clientes_unicos) if not df_clientes_unicos.empty else 0
+    return filename, n_puntos_total, df_areas

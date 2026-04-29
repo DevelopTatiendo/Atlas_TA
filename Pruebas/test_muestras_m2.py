@@ -189,7 +189,7 @@ def guardar_csv_promotor(df: pd.DataFrame, centroope: int):
 def generar_mapa_html_test(df_valid: pd.DataFrame, fc: dict, centroope: int) -> Path:
     ciudad_norm = _normalizar_ciudad(TEST_CIUDAD)
     center_point, path_geojson = COORDENADAS_CIUDADES.get(ciudad_norm, ([3.4516,-76.5320], None))
-    mapa = folium.Map(location=center_point, zoom_start=13)
+    mapa = folium.Map(location=center_point, zoom_start=13, tiles="https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}", attr="Esri")
     # Capa comunas
     if path_geojson and Path(path_geojson).exists():
         try:
