@@ -1,10 +1,5 @@
 from config.secrets_manager import load_env_secure
-load_env_secure(
-    prefer_plain=True,
-    enc_path="config/.env.enc",
-    pass_env_var="MAPAS_SECRET_PASSPHRASE",
-    cache=False
-)
+load_env_secure()  # Usa config/.env.enc + MAPAS_SECRET_PASSPHRASE del OS
 
 from flask import Flask, send_from_directory, abort, request
 from pathlib import Path

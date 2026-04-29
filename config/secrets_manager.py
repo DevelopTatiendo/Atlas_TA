@@ -1,6 +1,22 @@
 """
-Gestión segura de secretos para MAPAS_TA_DEV_1.
+Gestión segura de secretos para Atlas TA.
 Cifrado/descifrado de archivos .env usando Fernet + PBKDF2HMAC.
+
+REGLA DE ORO: nunca se usa .env plano en ningún entorno.
+Las credenciales viven SIEMPRE en config/.env.enc (cifrado).
+La passphrase vive en la variable de entorno del OS: MAPAS_SECRET_PASSPHRASE.
+
+── Setup local (una sola vez) ──────────────────────────────────────────────
+  # Agregar a ~/.zshrc o ~/.bashrc:
+  export MAPAS_SECRET_PASSPHRASE="passphrase_del_equipo"
+
+── Setup en producción / Docker ────────────────────────────────────────────
+  MAPAS_SECRET_PASSPHRASE=xxx streamlit run app.py
+  # o en variables de entorno del servidor / CI
+
+── Cifrar un .env nuevo ────────────────────────────────────────────────────
+  python -m config.secrets_manager encrypt .env config/.env.enc
+  # Después de cifrar, eliminar el .env plano del disco
 """
 
 import os
@@ -16,152 +32,184 @@ import secrets
 from dotenv import dotenv_values
 
 
+_PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+
+
 def _derive_key(passphrase: str, salt: bytes) -> bytes:
     """Deriva una clave Fernet desde una passphrase usando PBKDF2HMAC."""
     kdf = PBKDF2HMAC(
         algorithm=hashes.SHA256(),
         length=32,
         salt=salt,
-        iterations=200_000,  # >= 200k iteraciones
-        backend=default_backend()
+        iterations=200_000,
+        backend=default_backend(),
     )
-    key = base64.urlsafe_b64encode(kdf.derive(passphrase.encode('utf-8')))
-    return key
+    return base64.urlsafe_b64encode(kdf.derive(passphrase.encode("utf-8")))
 
 
-def encrypt_env(in_path=".env", out_path="config/.env.enc"):
-    """
-    Cifra un archivo .env usando Fernet con clave derivada por PBKDF2HMAC.
-    
+def _warn_plain_env_exists() -> None:
+    """Advierte si existe un .env plano en el proyecto (no debería)."""
+    plain_path = os.path.join(_PROJECT_ROOT, ".env")
+    if os.path.exists(plain_path):
+        print(
+            "⚠️  ADVERTENCIA DE SEGURIDAD: existe un archivo .env plano en el proyecto.\n"
+            f"   Ruta: {plain_path}\n"
+            "   Este archivo contiene credenciales en texto claro.\n"
+            "   Elimínalo del disco: rm .env\n"
+            "   Las credenciales se cargan desde config/.env.enc (cifrado).\n",
+            file=sys.stderr,
+        )
+
+
+def load_env_secure(
+    enc_path: str = "config/.env.enc",
+    pass_env_var: str = "MAPAS_SECRET_PASSPHRASE",
+    # Parámetros legacy mantenidos solo para compatibilidad de firma — ignorados
+    prefer_plain: bool = False,
+    cache: bool = False,
+) -> None:
+    """Carga variables de entorno desde el archivo cifrado .env.enc.
+
+    SIEMPRE usa el archivo cifrado. El parámetro `prefer_plain` ya no tiene
+    efecto — se mantiene en la firma solo para no romper llamadas existentes.
+
     Args:
-        in_path: Ruta del archivo .env a cifrar
-        out_path: Ruta donde guardar el archivo cifrado
-    """
-    if not os.path.exists(in_path):
-        raise FileNotFoundError(f"Archivo no encontrado: {in_path}")
-    
-    # Leer contenido del archivo .env
-    with open(in_path, 'rb') as f:
-        plaintext = f.read()
-    
-    # Solicitar passphrase
-    passphrase = getpass.getpass("Ingrese passphrase para cifrar: ")
-    if not passphrase.strip():
-        raise ValueError("La passphrase no puede estar vacía")
-    
-    # Generar salt aleatorio de 16 bytes
-    salt = secrets.token_bytes(16)
-    
-    # Derivar clave
-    key = _derive_key(passphrase, salt)
-    
-    # Cifrar contenido
-    fernet = Fernet(key)
-    ciphertext = fernet.encrypt(plaintext)
-    
-    # Guardar: salt (16 bytes) + ciphertext
-    os.makedirs(os.path.dirname(out_path), exist_ok=True)
-    with open(out_path, 'wb') as f:
-        f.write(salt + ciphertext)
-    
-    print(f"✅ Archivo cifrado guardado en: {out_path}")
-    print(f"🔑 Salt: {salt.hex()[:16]}... ({len(salt)} bytes)")
-    print(f"📦 Tamaño cifrado: {len(ciphertext)} bytes")
+        enc_path:     Ruta al archivo .env.enc (relativa a la raíz del proyecto).
+        pass_env_var: Variable de entorno del OS con la passphrase.
+        prefer_plain: IGNORADO. Mantenido solo para compatibilidad.
+        cache:        IGNORADO. Mantenido solo para compatibilidad.
 
-
-def load_env_secure(prefer_plain=True, enc_path="config/.env.enc", pass_env_var="MAPAS_SECRET_PASSPHRASE", cache=False):
+    Raises:
+        FileNotFoundError: Si no existe config/.env.enc.
+        RuntimeError:      Si falta MAPAS_SECRET_PASSPHRASE.
+        ValueError:        Si la passphrase es incorrecta o el archivo está corrupto.
     """
-    Carga variables de entorno de forma segura.
-    
-    Args:
-        prefer_plain: Si True y existe .env, lo usa. Si no, usa el archivo cifrado.
-        enc_path: Ruta del archivo cifrado
-        pass_env_var: Variable de entorno con la passphrase
-        cache: No implementado (para compatibilidad futura)
-    """
-    # Opción 1: Usar .env plano si existe y se prefiere.
-    # Busca el .env relativo al directorio de este archivo (raíz del proyecto)
-    # y usa override=True para garantizar que sobreescribe valores vacíos del entorno.
-    _project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-    _dotenv_path = os.path.join(_project_root, ".env")
+    # Siempre advertir si hay un .env plano suelto
+    _warn_plain_env_exists()
 
-    if prefer_plain and os.path.exists(_dotenv_path):
-        print("🔓 Cargando .env plano (desarrollo)")
-        from dotenv import load_dotenv
-        load_dotenv(dotenv_path=_dotenv_path, override=True)
-        return
-    
-    # Opción 2: Usar archivo cifrado
+    # Resolver ruta absoluta del .enc
+    if not os.path.isabs(enc_path):
+        enc_path = os.path.join(_PROJECT_ROOT, enc_path)
+
     if not os.path.exists(enc_path):
-        # Si no hay .env ni .env.enc, error claro
-        if not os.path.exists(".env"):
-            raise RuntimeError(f"Falta configuración: no existe .env ni {enc_path}")
-        raise FileNotFoundError(f"Archivo cifrado no encontrado: {enc_path}")
-    
-    # Obtener passphrase
+        raise FileNotFoundError(
+            f"Archivo de secretos no encontrado: {enc_path}\n"
+            "Opciones:\n"
+            "  1. Pide el archivo config/.env.enc al equipo (viene en el repo).\n"
+            "  2. Si tienes un .env, cífralo: python -m config.secrets_manager encrypt\n"
+        )
+
+    # Obtener passphrase desde variable de entorno del OS
     passphrase = os.environ.get(pass_env_var)
     if not passphrase:
-        # Si hay archivo cifrado pero falta passphrase, error específico
-        raise RuntimeError(f"Falta {pass_env_var} para descifrar {enc_path}")
-    
-    # Leer archivo cifrado
-    with open(enc_path, 'rb') as f:
+        raise RuntimeError(
+            f"Falta la variable de entorno '{pass_env_var}'.\n"
+            "Agrégala a tu shell profile:\n"
+            f"  export {pass_env_var}='passphrase_del_equipo'\n"
+            "En producción: configúrala en las variables de entorno del servidor."
+        )
+
+    # Leer y descifrar
+    with open(enc_path, "rb") as f:
         encrypted_data = f.read()
-    
-    if len(encrypted_data) < 16:
-        raise ValueError("Archivo cifrado corrupto (demasiado corto)")
-    
-    # Extraer salt y ciphertext
-    salt = encrypted_data[:16]
+
+    if len(encrypted_data) < 17:
+        raise ValueError(f"Archivo cifrado corrupto o vacío: {enc_path}")
+
+    salt       = encrypted_data[:16]
     ciphertext = encrypted_data[16:]
-    
-    # Derivar clave y descifrar
-    key = _derive_key(passphrase, salt)
-    fernet = Fernet(key)
-    
+    key        = _derive_key(passphrase, salt)
+    fernet     = Fernet(key)
+
     try:
         plaintext = fernet.decrypt(ciphertext)
     except Exception as e:
-        raise ValueError(f"Error al descifrar (passphrase incorrecta?): {e}")
-    
-    # Parsear contenido descifrado en memoria
-    env_content = plaintext.decode('utf-8')
-    env_vars = dotenv_values(stream=StringIO(env_content))
-    
-    # Cargar en os.environ (solo si no existe)
-    loaded_count = 0
-    for key, value in env_vars.items():
-        if key and value is not None:
-            os.environ.setdefault(key, value)
-            loaded_count += 1
-    
-    print(f"🔐 Variables cargadas desde archivo cifrado: {loaded_count}")
+        raise ValueError(
+            f"No se pudo descifrar {enc_path}.\n"
+            f"¿Es correcta la passphrase en '{pass_env_var}'?\n"
+            f"Detalle: {e}"
+        ) from e
+
+    # Parsear e inyectar en os.environ (sin sobrescribir variables ya seteadas)
+    env_vars = dotenv_values(stream=StringIO(plaintext.decode("utf-8")))
+    loaded = sum(
+        1 for k, v in env_vars.items()
+        if k and v is not None and not os.environ.get(k)
+        and (os.environ.__setitem__(k, v) or True)
+    )
+    print(f"🔐 {loaded} variables cargadas desde {os.path.basename(enc_path)}")
 
 
-def _cli_main():
+def encrypt_env(in_path: str = ".env", out_path: str = "config/.env.enc") -> None:
+    """Cifra un archivo .env y lo guarda en out_path.
+
+    Tras cifrar, elimina el archivo plano del disco para no dejar credenciales expuestas.
+    """
+    if not os.path.exists(in_path):
+        raise FileNotFoundError(f"Archivo de entrada no encontrado: {in_path}")
+
+    with open(in_path, "rb") as f:
+        plaintext = f.read()
+
+    passphrase = getpass.getpass("Passphrase para cifrar (mín. 16 caracteres): ")
+    if len(passphrase.strip()) < 8:
+        raise ValueError("La passphrase debe tener al menos 8 caracteres.")
+
+    confirm = getpass.getpass("Confirma passphrase: ")
+    if passphrase != confirm:
+        raise ValueError("Las passphrases no coinciden.")
+
+    salt       = secrets.token_bytes(16)
+    key        = _derive_key(passphrase, salt)
+    fernet     = Fernet(key)
+    ciphertext = fernet.encrypt(plaintext)
+
+    os.makedirs(os.path.dirname(out_path) or ".", exist_ok=True)
+    with open(out_path, "wb") as f:
+        f.write(salt + ciphertext)
+
+    print(f"✅ Cifrado guardado en: {out_path}")
+    print(f"   Salt: {salt.hex()[:16]}... | Tamaño: {len(ciphertext)} bytes")
+
+    # Eliminar el .env plano automáticamente
+    try:
+        os.remove(in_path)
+        print(f"🗑️  Archivo plano eliminado: {in_path}")
+    except OSError as e:
+        print(f"⚠️  No se pudo eliminar {in_path}: {e}")
+        print("   Elimínalo manualmente para no dejar credenciales expuestas.")
+
+
+def _cli_main() -> None:
     """Interfaz de línea de comandos."""
+    usage = (
+        "Uso: python -m config.secrets_manager <comando>\n"
+        "\n"
+        "Comandos:\n"
+        "  encrypt [input] [output]  Cifra un .env plano → .enc\n"
+        "                            Default: .env → config/.env.enc\n"
+        "\n"
+        "Ejemplo:\n"
+        "  python -m config.secrets_manager encrypt\n"
+        "  python -m config.secrets_manager encrypt .env config/.env.enc\n"
+    )
+
     if len(sys.argv) < 2:
-        print("Uso: python -m config.secrets_manager <comando> [argumentos]")
-        print("Comandos:")
-        print("  encrypt [input] [output]  - Cifra archivo .env")
-        print("Ejemplo:")
-        print("  python -m config.secrets_manager encrypt")
-        print("  python -m config.secrets_manager encrypt .env config/.env.enc")
+        print(usage)
         return
-    
+
     command = sys.argv[1]
-    
+
     if command == "encrypt":
-        in_path = sys.argv[2] if len(sys.argv) > 2 else ".env"
+        in_path  = sys.argv[2] if len(sys.argv) > 2 else ".env"
         out_path = sys.argv[3] if len(sys.argv) > 3 else "config/.env.enc"
-        
         try:
             encrypt_env(in_path, out_path)
         except Exception as e:
-            print(f"❌ Error: {e}")
+            print(f"❌ Error: {e}", file=sys.stderr)
             sys.exit(1)
     else:
-        print(f"❌ Comando desconocido: {command}")
+        print(f"❌ Comando desconocido: {command}\n{usage}", file=sys.stderr)
         sys.exit(1)
 
 
