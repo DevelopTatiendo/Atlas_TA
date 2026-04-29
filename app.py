@@ -20,7 +20,7 @@ import base64
 # from mapa_facturas_vencidas import generar_mapa_facturas_vencidas
 # from mapa_visitas import generar_mapa_visitas_individuales
 # Nuevo flujo (datos + visual)
-from new_mapa_muestras import (
+from mapa_muestras import (
     generar_mapa_muestras as generar_mapa_muestras_datos,
     generar_mapa_muestras_visual,
     generar_mapa_muestras_clientes,
