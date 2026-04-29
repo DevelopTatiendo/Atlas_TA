@@ -64,52 +64,62 @@ def _warn_plain_env_exists() -> None:
 def load_env_secure(
     enc_path: str = "config/.env.enc",
     pass_env_var: str = "MAPAS_SECRET_PASSPHRASE",
-    # Parámetros legacy mantenidos solo para compatibilidad de firma — ignorados
-    prefer_plain: bool = False,
+    prefer_plain: bool = True,
     cache: bool = False,
 ) -> None:
-    """Carga variables de entorno desde el archivo cifrado .env.enc.
+    """Carga variables de entorno de forma segura.
 
-    SIEMPRE usa el archivo cifrado. El parámetro `prefer_plain` ya no tiene
-    efecto — se mantiene en la firma solo para no romper llamadas existentes.
+    RUTA 1 — prefer_plain=True (desarrollo actual):
+      Si existe .env plano, lo usa con una advertencia de seguridad visible.
+      Mantiene compatibilidad con setups existentes.
+
+    RUTA 2 — prefer_plain=False (objetivo de seguridad):
+      Usa SIEMPRE config/.env.enc + MAPAS_SECRET_PASSPHRASE del OS.
+      Es el estado final al que migrar cuando todos los entornos estén listos.
 
     Args:
         enc_path:     Ruta al archivo .env.enc (relativa a la raíz del proyecto).
         pass_env_var: Variable de entorno del OS con la passphrase.
-        prefer_plain: IGNORADO. Mantenido solo para compatibilidad.
-        cache:        IGNORADO. Mantenido solo para compatibilidad.
-
-    Raises:
-        FileNotFoundError: Si no existe config/.env.enc.
-        RuntimeError:      Si falta MAPAS_SECRET_PASSPHRASE.
-        ValueError:        Si la passphrase es incorrecta o el archivo está corrupto.
+        prefer_plain: True = usar .env plano si existe (dev, compatibilidad).
+                      False = forzar .enc (producción segura).
+        cache:        Reservado para compatibilidad futura.
     """
-    # Siempre advertir si hay un .env plano suelto
-    _warn_plain_env_exists()
+    _plain_path = os.path.join(_PROJECT_ROOT, ".env")
 
-    # Resolver ruta absoluta del .enc
+    # ── RUTA 1: .env plano disponible y prefer_plain activo ──────────────────
+    if prefer_plain and os.path.exists(_plain_path):
+        print(
+            "⚠️  [SEGURIDAD] Cargando credenciales desde .env PLANO.\n"
+            "   Para migrar al modo seguro:\n"
+            "   1. Ejecuta: python -m config.secrets_manager encrypt\n"
+            f"  2. Agrega a tu shell: export {pass_env_var}='tu_passphrase'\n"
+            "   3. Cambia la llamada a: load_env_secure(prefer_plain=False)\n",
+            file=sys.stderr,
+        )
+        from dotenv import load_dotenv
+        load_dotenv(dotenv_path=_plain_path, override=True)
+        return
+
+    # ── RUTA 2: archivo cifrado ───────────────────────────────────────────────
     if not os.path.isabs(enc_path):
         enc_path = os.path.join(_PROJECT_ROOT, enc_path)
 
     if not os.path.exists(enc_path):
         raise FileNotFoundError(
-            f"Archivo de secretos no encontrado: {enc_path}\n"
+            f"No se encontró {enc_path} ni un .env plano.\n"
             "Opciones:\n"
-            "  1. Pide el archivo config/.env.enc al equipo (viene en el repo).\n"
-            "  2. Si tienes un .env, cífralo: python -m config.secrets_manager encrypt\n"
+            "  • Si tienes un .env: python -m config.secrets_manager encrypt\n"
+            "  • Si no tienes nada: pide config/.env.enc al equipo.\n"
         )
 
-    # Obtener passphrase desde variable de entorno del OS
     passphrase = os.environ.get(pass_env_var)
     if not passphrase:
         raise RuntimeError(
-            f"Falta la variable de entorno '{pass_env_var}'.\n"
-            "Agrégala a tu shell profile:\n"
-            f"  export {pass_env_var}='passphrase_del_equipo'\n"
-            "En producción: configúrala en las variables de entorno del servidor."
+            f"Falta '{pass_env_var}' en las variables de entorno del OS.\n"
+            f"Agrégala a tu shell: export {pass_env_var}='tu_passphrase'\n"
+            "En producción: configúrala en las variables del servidor."
         )
 
-    # Leer y descifrar
     with open(enc_path, "rb") as f:
         encrypted_data = f.read()
 
@@ -126,11 +136,10 @@ def load_env_secure(
     except Exception as e:
         raise ValueError(
             f"No se pudo descifrar {enc_path}.\n"
-            f"¿Es correcta la passphrase en '{pass_env_var}'?\n"
-            f"Detalle: {e}"
+            f"Verifica que '{pass_env_var}' tenga la passphrase correcta.\n"
+            f"Detalle técnico: {type(e).__name__}: {e}"
         ) from e
 
-    # Parsear e inyectar en os.environ (sin sobrescribir variables ya seteadas)
     env_vars = dotenv_values(stream=StringIO(plaintext.decode("utf-8")))
     loaded = sum(
         1 for k, v in env_vars.items()

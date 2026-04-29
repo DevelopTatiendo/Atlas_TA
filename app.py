@@ -1,5 +1,9 @@
 from config.secrets_manager import load_env_secure
-load_env_secure()  # Usa config/.env.enc + MAPAS_SECRET_PASSPHRASE del OS
+load_env_secure(
+    prefer_plain=False,         # siempre usa .enc cifrado
+    enc_path="config/.env.enc",
+    pass_env_var="MAPAS_SECRET_PASSPHRASE",
+)
 
 import os
 import time
