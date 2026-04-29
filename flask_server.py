@@ -1,9 +1,8 @@
 from config.secrets_manager import load_env_secure
 load_env_secure(
-    prefer_plain=True,
+    prefer_plain=False,         # siempre usa .enc cifrado
     enc_path="config/.env.enc",
     pass_env_var="MAPAS_SECRET_PASSPHRASE",
-    cache=False
 )
 
 from flask import Flask, send_from_directory, abort, request
