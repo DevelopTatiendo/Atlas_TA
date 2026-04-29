@@ -88,7 +88,7 @@ def generar_mapa_consultores_simple(ciudad: str, id_ruta: int, fecha_inicio: dat
             df_eventos = pd.DataFrame()
         
         # 5. Crear mapa base centrado en la ciudad
-        mapa = folium.Map(location=location, zoom_start=12)
+        mapa = folium.Map(location=location, zoom_start=12, tiles="https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}", attr="Esri")
         
         # 6. Cargar y añadir capa de comunas como base geográfica
         geojson_loaded = False

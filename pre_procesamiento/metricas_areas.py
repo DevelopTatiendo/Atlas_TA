@@ -3,6 +3,7 @@ import pandas as pd
 import logging
 from typing import Dict, Tuple, Iterable, List, Literal
 from dataclasses import dataclass
+from joblib import Parallel, delayed
 
 from shapely.geometry import Point, MultiPoint, Polygon, mapping
 from shapely.ops import unary_union, triangulate, transform as shp_transform
@@ -585,6 +586,37 @@ def _ensure_id_autor(df: pd.DataFrame) -> pd.DataFrame:
     return df
 
 
+def _calcular_row_promotor(pid: int, X: np.ndarray, df_ll: pd.DataFrame) -> dict:
+    """
+    Worker para joblib: calcula área y métricas de un solo promotor.
+    Extrae la lógica del loop en calcular_areas_por_promotor para
+    poder ejecutarla en paralelo.
+    """
+    detalles = _subclusters_m2_detalle(X)
+    if not detalles:
+        area_total = 0.0
+        usados = 0
+        dens_comp_prom = 0.0
+    else:
+        area_total = float(sum(sc.area_m2 for sc in detalles))
+        usados = int(sum(sc.n_puntos for sc in detalles))
+        wsum = float(sum(float(sc.densidad_compacta) * float(sc.n_puntos) for sc in detalles))
+        nsum = float(sum(float(sc.n_puntos) for sc in detalles))
+        dens_comp_prom = float(wsum / nsum) if nsum > 0 else 0.0
+    puntos_totales = int(len(df_ll[df_ll["id_autor"] == pid]))
+    return {
+        "id_autor": int(pid),
+        "area_total_m2": area_total,
+        "puntos_usados_total": usados,
+        "puntos_totales": puntos_totales,
+        "densidad_compacta_promotor": dens_comp_prom,
+    }
+
+
+# Umbral mínimo de promotores para activar paralelismo
+_PARALLEL_THRESHOLD = 4
+
+
 def calcular_areas_por_promotor(
     df: pd.DataFrame,
     centroope: int | None,
@@ -610,29 +642,18 @@ def calcular_areas_por_promotor(
     if not X_por_promotor:
         return pd.DataFrame(columns=["id_autor", "area_total_m2", "puntos_usados_total", "puntos_totales", "densidad_compacta_promotor"])
 
-    rows: List[dict] = []
-    for pid, X in X_por_promotor.items():
-        detalles = _subclusters_m2_detalle(X)
-        if not detalles:
-            area_total = 0.0
-            usados = 0
-            dens_comp_prom = 0.0
-        else:
-            area_total = float(sum(sc.area_m2 for sc in detalles))
-            usados = int(sum(sc.n_puntos for sc in detalles))
-            # Promedio ponderado por n_puntos de la densidad compacta de subclusters
-            wsum = float(sum(float(sc.densidad_compacta) * float(sc.n_puntos) for sc in detalles))
-            nsum = float(sum(float(sc.n_puntos) for sc in detalles))
-            dens_comp_prom = float(wsum / nsum) if nsum > 0 else 0.0
-        # puntos_totales = registros originales de este id_autor (con lat/lon válidos)
-        puntos_totales = int(len(df_ll[df_ll['id_autor'] == pid]))
-        rows.append({
-            "id_autor": int(pid),
-            "area_total_m2": area_total,
-            "puntos_usados_total": usados,
-            "puntos_totales": puntos_totales,
-            "densidad_compacta_promotor": dens_comp_prom,
-        })
+    items = list(X_por_promotor.items())
+
+    # Paralelismo con joblib solo cuando hay suficientes promotores.
+    # prefer="threads" evita el overhead de pickle de multiprocessing y es
+    # seguro con las bibliotecas NumPy/Shapely que liberan el GIL.
+    if len(items) > _PARALLEL_THRESHOLD:
+        rows: List[dict] = Parallel(n_jobs=-1, prefer="threads")(
+            delayed(_calcular_row_promotor)(pid, X, df_ll)
+            for pid, X in items
+        )
+    else:
+        rows = [_calcular_row_promotor(pid, X, df_ll) for pid, X in items]
 
     return pd.DataFrame(rows, columns=["id_autor", "area_total_m2", "puntos_usados_total", "puntos_totales", "densidad_compacta_promotor"])\
         .drop_duplicates("id_autor")

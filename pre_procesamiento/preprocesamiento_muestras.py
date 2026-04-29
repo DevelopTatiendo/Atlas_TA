@@ -1,8 +1,9 @@
-"""Nuevo módulo de preprocesamiento para muestras (Fase 1).
+"""Módulo de preprocesamiento para muestras.
 
 Responsabilidad limitada a:
 1. Consultar la BD (consultar_db)
 2. Limpiar / normalizar DataFrame crudo (crear_df)
+3. Consultar y aplicar contactabilidad temporal (consultar_llamadas_raw, aplicar_contactabilidad_temporal)
 
 No calcula métricas, no agrupa, no deduplica. Preparación básica de datos.
 """

@@ -19,3 +19,9 @@ validators==0.34.0
 SQLAlchemy>=2.0.0
 h3>=3.7.7
 networkx>=3.2
+joblib>=1.3.0
+
+# ── Agente (produccion_v2) ────────────────────────────────────────────────────
+anthropic>=0.30.0         # API Claude — agente conversacional
+playwright>=1.44.0        # Screenshots headless de mapas Folium
+Pillow>=10.0.0            # Manipulación de imágenes PNG
