@@ -114,6 +114,7 @@ Pruebas/Resultados_M2_Test/*.html
 Pruebas/Resultados_M2_Test/*.csv
 Claude/**
 agente/ejemplos/*.json
+agente/vanna_sql/**
 
 
 # ⚠️ No ignores todo *.html / *.pdf globalmente
