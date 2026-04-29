@@ -222,7 +222,7 @@ def generar_grid(df_promotor: pd.DataFrame) -> Tuple[pd.DataFrame, pd.DataFrame]
 
 def generar_mapa(df_pts: pd.DataFrame, df_cells: pd.DataFrame, html_path: str):
     cfg = CIUDADES[CIUDAD]
-    m = folium.Map(location=cfg["center"], zoom_start=12, zoom_control=False)
+    m = folium.Map(location=cfg["center"], zoom_start=12, tiles="https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}", attr="Esri", zoom_control=False)
     # Color scale simple por n_muestras
     if not df_cells.empty:
         vmax = max(1, int(df_cells["n_muestras"].max()))
@@ -300,7 +300,7 @@ def main():
         logging.warning("DF promotor vacío; se generan archivos vacíos.")
         pd.DataFrame().to_csv(CSV_CELDAS, index=False, sep=";", encoding="utf-8-sig")
         pd.DataFrame().to_csv(CSV_PUNTOS, index=False, sep=";", encoding="utf-8-sig")
-        folium.Map(location=cfg["center"], zoom_start=12).save(HTML_MAP)
+        folium.Map(location=cfg["center"], zoom_start=12, tiles="https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}", attr="Esri").save(HTML_MAP)
         return
     df_pts, df_cells = generar_grid(df_promotor)
     # Exportar puntos con índices de celda

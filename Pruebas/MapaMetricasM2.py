@@ -487,7 +487,7 @@ def _export_subclusters_kmeans(df_cluster, transformer, out_dir, filename_html="
     latlon_pod = df_pod[["_lat","_lon"]].to_numpy(float)
     n = len(Xp)
     center = [float(latlon[:,0].mean()), float(latlon[:,1].mean())] if len(latlon) else [0,0]
-    m = folium.Map(location=center, zoom_start=13, zoom_control=False)
+    m = folium.Map(location=center, zoom_start=13, tiles="https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}", attr="Esri", zoom_control=False)
     try:
         _add_rutas_layer(m)
     except Exception:
@@ -660,7 +660,7 @@ def _export_concave_sub(df_sub: pd.DataFrame, transformer: Transformer, out_dir:
     center_sc = [float(latlon_sc[:,0].mean()), float(latlon_sc[:,1].mean())] if len(latlon_sc) else _cfg["center"]
     ma = None
     if mapa_global is None:
-        ma = folium.Map(location=center_sc, zoom_start=13, zoom_control=False)
+        ma = folium.Map(location=center_sc, zoom_start=13, tiles="https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}", attr="Esri", zoom_control=False)
         try:
             _add_rutas_layer(ma)
         except Exception:
@@ -818,7 +818,7 @@ def _export_concave_cluster_from_submap(
                 center = [float(np.mean(latlon_pts[:,0])), float(np.mean(latlon_pts[:,1]))]
         else:
             center = [float(np.mean(latlon_pts[:,0])), float(np.mean(latlon_pts[:,1]))]
-        mc = folium.Map(location=center, zoom_start=13, zoom_control=False)
+        mc = folium.Map(location=center, zoom_start=13, tiles="https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}", attr="Esri", zoom_control=False)
         try:
             _add_rutas_layer(mc)
         except Exception:
@@ -925,7 +925,7 @@ def main():
 
     if df.empty:
         logging.warning("DF vacío: se generará mapa sin puntos.")
-        mapa_vacio = folium.Map(location=_cfg["center"], zoom_start=12, zoom_control=False)
+        mapa_vacio = folium.Map(location=_cfg["center"], zoom_start=12, tiles="https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}", attr="Esri", zoom_control=False)
         mapa_vacio.save(HTML_BASE)
         pd.DataFrame().to_csv(CSV_OUT, index=False, sep=";", encoding="utf-8-sig")
         logging.info(f"HTML vacío: {HTML_BASE}")
@@ -943,7 +943,7 @@ def main():
         logging.error(f"No fue posible guardar CSV crudo: {e}")
 
     # Mapa base (puntos crudos) para HTML_BASE
-    mapa_base = folium.Map(location=_cfg["center"], zoom_start=12, zoom_control=False)
+    mapa_base = folium.Map(location=_cfg["center"], zoom_start=12, tiles="https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}", attr="Esri", zoom_control=False)
     try:
         if os.path.exists(_cfg["geojson"]):
             with open(_cfg["geojson"], "r", encoding="utf-8") as f:
@@ -962,7 +962,7 @@ def main():
         logging.warning("No se pudo guardar mapa base")
 
     # Clustering global
-    mapa_clusters = folium.Map(location=_cfg["center"], zoom_start=12, zoom_control=False)
+    mapa_clusters = folium.Map(location=_cfg["center"], zoom_start=12, tiles="https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}", attr="Esri", zoom_control=False)
     try:
         _add_rutas_layer(mapa_clusters)
     except Exception:
@@ -1002,7 +1002,7 @@ def main():
         clip_city_utm = None
 
     # Mapa global de subclusters (todas las geometrías)
-    mapa_subs_global = folium.Map(location=_cfg["center"], zoom_start=12, zoom_control=False)
+    mapa_subs_global = folium.Map(location=_cfg["center"], zoom_start=12, tiles="https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}", attr="Esri", zoom_control=False)
     try:
         _add_rutas_layer(mapa_subs_global)
     except Exception:
