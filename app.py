@@ -1,9 +1,8 @@
 from config.secrets_manager import load_env_secure
 load_env_secure(
-    prefer_plain=True,
+    prefer_plain=False,         # siempre usa .enc cifrado
     enc_path="config/.env.enc",
     pass_env_var="MAPAS_SECRET_PASSPHRASE",
-    cache=False
 )
 
 import os
@@ -20,7 +19,7 @@ import base64
 # from mapa_facturas_vencidas import generar_mapa_facturas_vencidas
 # from mapa_visitas import generar_mapa_visitas_individuales
 # Nuevo flujo (datos + visual)
-from new_mapa_muestras import (
+from mapa_muestras import (
     generar_mapa_muestras as generar_mapa_muestras_datos,
     generar_mapa_muestras_visual,
     generar_mapa_muestras_clientes,
@@ -30,6 +29,9 @@ from pre_procesamiento.new_preprocesamiento_muestras import listar_promotores
 from mapa_consultores import generar_mapa_consultores
 from mapa_consultores_simple import generar_mapa_consultores_simple
 import validators
+from datetime import datetime
+
+from  mapa_muestras import generar_mapa_muestras_visual
 
 #serbot software de verificacion y certificacion de https
 # Configuración de entorno
@@ -613,13 +615,13 @@ if ES_MAPA_MUESTRAS:
             print(f"[STREAMLIT] Error verificando filename en sesión: {_e_sess}", flush=True)
     
     if map_filename and os.path.exists(os.path.join("static", "maps", map_filename)):
+        from datetime import datetime
         import re
         
         ciudad_html = re.sub(r'[^A-Za-z0-9]', '', ciudad.upper())
         ciudad_html = ciudad_html.replace('Á', 'A').replace('É', 'E').replace('Í', 'I').replace('Ó', 'O').replace('Ú', 'U')
-        color_mode = st.session_state.get("color_mode_muestras")
-        sufijo = "PROMOTORES" if color_mode == "Promotores" else "MESES"
-        filename_html = f"MAPA_MUESTRAS_{ciudad_html}_{sufijo}.html"
+        fecha_actual = datetime.now().strftime("%Y%m%d")
+        filename_html = f"Mapa_Muestras_{ciudad_html}_{fecha_actual}.html"
         
         with open(os.path.join("static", "maps", map_filename), "rb") as f:
             html_bytes = f.read()
@@ -772,41 +774,50 @@ st.markdown(
     .card-cuadrantes {{
         background: linear-gradient(135deg, #5B21B6 0%, #6D28D9 100%);
         color: white;
-        padding: 1.25rem 1.5rem;
-        border-radius: 14px;
-        margin: 1.25rem 0 1rem 0;
-        box-shadow: 0 6px 18px rgba(0,0,0,.16);
+        padding: 1.5rem;
+        border-radius: 12px;
+        margin: 1.5rem 0;
+        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
         border: 1px solid rgba(255,255,255,.15);
-        display:flex; align-items:center; justify-content:space-between; gap:12px;
-    }}
-    .card-cuadrantes .text {{
-        display:flex; flex-direction:column; gap:6px;
     }}
     .card-cuadrantes h3 {{
-        margin: 0; font-size: 1.1rem; font-weight: 700; letter-spacing:-.01em;
+        margin: 0 0 0.5rem 0;
+        font-size: 1.25rem;
+        font-weight: bold;
     }}
-    .card-cuadrantes p {{ margin:0; opacity:.92; }}
-    .card-cuadrantes .cta-wrap {{ min-width: 280px; text-align:right; }}
-    @media (max-width: 820px) {{
-      .card-cuadrantes {{ flex-direction:column; align-items:flex-start; }}
-      .card-cuadrantes .cta-wrap {{ width:100%; text-align:left; }}
+    .cta-editor {{
+        display: inline-block;
+        background: rgba(255, 255, 255, 0.2);
+        color: white;
+        text-decoration: none;
+        padding: 0.75rem 1.5rem;
+        border-radius: 8px;
+        font-weight: 500;
+        transition: all 0.3s ease;
+        border: 1px solid rgba(255, 255, 255, 0.3);
+    }}
+    .cta-editor:hover {{
+        background: rgba(255, 255, 255, 0.3);
+        transform: translateY(-1px);
+        box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+        text-decoration: none;
+        color: white;
     }}
     @media (prefers-color-scheme: dark) {{
-      .card-cuadrantes {{ border-color: rgba(255,255,255,.25); }}
-      .card-cuadrantes h3 {{ color: #f7fafc; }}
-      .card-cuadrantes p {{ color: #d1d5db; }}
+        .card-cuadrantes {{
+            border-color: rgba(255,255,255,.25);
+        }}
+        .card-cuadrantes h3 {{
+            color: #f7fafc;
+        }}
+        .card-cuadrantes p {{
+            color: #a0aec0;
+        }}
     }}
-    </style>
-    <div class="card-cuadrantes">
-      <div class="text">
-        <h3>Segmentación de ciudades</h3>
-        <p>Abre el editor para crear y ajustar cuadrantes por ciudad.</p>
-      </div>
-      <div class="cta-wrap">
-        <a href="{editor_url}" target="_blank" rel="noopener" class="btn-link">🗺️ Abrir editor de cuadrantes</a>
-      </div>
+    
+    
     </div>
-    """,
+    """, 
     unsafe_allow_html=True
 )
 

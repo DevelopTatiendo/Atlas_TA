@@ -1,4 +1,9 @@
-from dotenv import load_dotenv
+from config.secrets_manager import load_env_secure
+load_env_secure(
+    prefer_plain=False,         # siempre usa .enc cifrado
+    enc_path="config/.env.enc",
+    pass_env_var="MAPAS_SECRET_PASSPHRASE",
+)
 
 from flask import Flask, send_from_directory, abort, request
 from pathlib import Path
@@ -11,13 +16,6 @@ MAPS_DIR = BASE_DIR / "static" / "maps"
 QUADRANTS_EDITOR_DIR = BASE_DIR / "static" / "quadrants_editor"
 VENDOR_DIR = BASE_DIR / "static" / "vendor"
 GEOJSON_DIR = BASE_DIR / "geojson"
-
-# Cargar variables desde config/.env plano antes de crear la app
-_ENV_PATH = BASE_DIR / "config" / ".env"
-if _ENV_PATH.exists():
-    load_dotenv(dotenv_path=str(_ENV_PATH), override=True)
-else:
-    print(f"[ENV] Archivo no encontrado: {_ENV_PATH}. Variables de entorno podrían faltar.")
 
 app = Flask(
     __name__,
