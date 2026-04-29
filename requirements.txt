@@ -28,5 +28,6 @@ Pillow>=10.0.0            # Manipulación de imágenes PNG
 
 # ── Vanna AI — Text-to-SQL local sin costo por token ─────────────────────────
 vanna[chromadb]>=2.0.0        # RAG pipeline Text-to-SQL (legacy mixin API)
-openai>=1.0.0                 # Cliente OpenAI — usado por vanna.legacy.openai + Groq compat
+openai>=1.0.0                 # Cliente OpenAI-compat — Gemini + Groq usan este mismo cliente
 chromadb>=1.1.0               # Vector store local persistente en disco
+# Gemini y Groq no requieren paquete propio: ambos usan endpoint OpenAI-compatible

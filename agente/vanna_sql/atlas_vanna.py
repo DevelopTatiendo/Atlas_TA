@@ -2,25 +2,23 @@
 """
 Clase principal Vanna para Atlas TA.
 Combina:
-  - OpenAI_Chat (legacy) apuntando a Groq → LLM gratuito vía API OpenAI-compatible
-  - ChromaDB_VectorStore (legacy)         → vector store local en disco (sin costo)
-  - MySQL                                 → fullclean_* (solo lectura)
+  - OpenAI_Chat (legacy) → soporta Gemini y Groq vía API OpenAI-compatible
+  - ChromaDB_VectorStore → vector store local en disco (sin costo)
+  - MySQL                → fullclean_* (solo lectura)
 
-Por qué "legacy":
-  vanna 2.0 reescribió su arquitectura interna (nuevo agente framework).
-  El patrón de herencia múltiple (mixin) que usamos aquí sigue viviendo en
-  vanna.legacy y es completamente estable para uso directo.
+Proveedor activo (configurable por variable de entorno):
+  GEMINI_API_KEY  → usa Google Gemini (gemini-2.0-flash) — 1M tokens/día gratis
+  GROQ_API_KEY    → usa Groq (llama-3.3-70b-versatile)   — 100k tokens/día gratis
 
-Por qué Groq via OpenAI-compat:
-  Groq expone una API 100% compatible con OpenAI en https://api.groq.com/openai/v1.
-  Pasamos un cliente OpenAI custom a OpenAI_Chat — sin cambiar nada más.
+La función get_vanna() detecta automáticamente cuál key está disponible.
+Se puede forzar un proveedor con el parámetro provider='gemini' | 'groq'.
 
 Uso rápido:
     from config.secrets_manager import load_env_secure
     load_env_secure()
     from agente.vanna_sql.atlas_vanna import get_vanna
     vn = get_vanna()
-    sql = vn.generate_sql("¿Cuántas llamadas contestadas tuvo el asesor García en marzo?")
+    sql = vn.generate_sql("Lista de clientes del CO Medellín con pedido en abril 2026")
     df  = vn.run_sql(sql)
 """
 
@@ -34,14 +32,27 @@ from vanna.legacy.openai  import OpenAI_Chat
 # ── Ruta persistente del vector store (gitignoreada) ─────────────────────────
 _CHROMA_DIR = Path(__file__).parent / "chroma_store"
 
-# ── URL base de Groq — compatible con OpenAI ─────────────────────────────────
-_GROQ_BASE_URL = "https://api.groq.com/openai/v1"
+# ── Endpoints OpenAI-compatibles ─────────────────────────────────────────────
+_PROVIDERS = {
+    "gemini": {
+        "base_url":    "https://generativelanguage.googleapis.com/v1beta/openai/",
+        "env_key":     "GEMINI_API_KEY",
+        "default_model": "gemini-2.0-flash",
+        "label":       "Google Gemini (1M tokens/día gratis)",
+    },
+    "groq": {
+        "base_url":    "https://api.groq.com/openai/v1",
+        "env_key":     "GROQ_API_KEY",
+        "default_model": "llama-3.3-70b-versatile",
+        "label":       "Groq (100k tokens/día gratis)",
+    },
+}
 
 
 class AtlasVanna(ChromaDB_VectorStore, OpenAI_Chat):
     """
     Clase Vanna para Atlas TA.
-    Herencia:  ChromaDB_VectorStore (vector store) + OpenAI_Chat (LLM via Groq).
+    Herencia: ChromaDB_VectorStore (vector store) + OpenAI_Chat (LLM).
     El orden importa: ChromaDB primero para que su MRO tenga prioridad en train().
     """
 
@@ -53,46 +64,94 @@ class AtlasVanna(ChromaDB_VectorStore, OpenAI_Chat):
         """Silencia el verbose interno de Vanna (prompts, LLM responses, etc.)."""
         pass
 
+    def submit_prompt(self, prompt, **kwargs):
+        """
+        Sanitiza el prompt antes de mandarlo al LLM.
+
+        Gemini (endpoint OpenAI-compatible) rechaza con 400 INVALID_ARGUMENT si:
+          - content es None/null
+          - el mensaje tiene campos extra con None (function_call, tool_calls, name, etc.)
+            que el SDK serializa como null en el JSON
+
+        Este override reconstruye solo {role, content} para cada mensaje,
+        descartando cualquier campo adicional que Vanna o el SDK puedan añadir.
+        """
+        if isinstance(prompt, list):
+            sanitized = []
+            for msg in prompt:
+                if not isinstance(msg, dict):
+                    continue
+                role    = msg.get("role")
+                content = msg.get("content")
+                # Descartar mensajes con role o content nulos
+                if not role or content is None:
+                    continue
+                # SOLO role + content — no propagar function_call/tool_calls/name/etc.
+                sanitized.append({"role": str(role), "content": str(content)})
+            prompt = sanitized
+        return super().submit_prompt(prompt, **kwargs)
+
 
 def get_vanna(
-    model: str = "llama-3.3-70b-versatile",
+    model:      str | None = None,
+    provider:   str | None = None,
     connect_db: bool = True,
 ) -> AtlasVanna:
     """
-    Fábrica principal. Lee credenciales del entorno (ya descifradas por
-    secrets_manager antes de llamar a esta función).
+    Fábrica principal.
 
     Parámetros:
-        model       → modelo Groq a usar
-        connect_db  → si False, omite la conexión MySQL (útil para training
-                      y generación de SQL sin ejecutar contra la BD)
+        model      → modelo a usar; si None usa el default del proveedor
+        provider   → 'gemini' | 'groq'; si None detecta automáticamente
+                     (prioridad: Gemini > Groq)
+        connect_db → si False omite la conexión MySQL (útil para training)
 
-    Modelos Groq activos (abril 2026):
-      - llama-3.3-70b-versatile  → recomendado, 128K contexto, gratis
-      - llama-3.1-8b-instant     → más rápido, menor costo, algo menos preciso
-      - mixtral-8x7b-32768       → buena alternativa
+    Modelos recomendados:
+      Gemini:  gemini-2.0-flash (rápido, 1M tokens/día, gratis)
+               gemini-1.5-pro   (más potente, mismo límite)
+      Groq:    llama-3.3-70b-versatile (100k tokens/día)
     """
-    api_key = os.environ.get("GROQ_API_KEY")
+    # ── Detectar proveedor ────────────────────────────────────────────────────
+    if provider is None:
+        if os.environ.get("GEMINI_API_KEY"):
+            provider = "gemini"
+        elif os.environ.get("GROQ_API_KEY"):
+            provider = "groq"
+        else:
+            raise EnvironmentError(
+                "No se encontró GEMINI_API_KEY ni GROQ_API_KEY en el entorno. "
+                "Llama a load_env_secure() antes de get_vanna()."
+            )
+
+    cfg = _PROVIDERS.get(provider)
+    if not cfg:
+        raise ValueError(f"Proveedor desconocido: '{provider}'. Usa 'gemini' o 'groq'.")
+
+    api_key = os.environ.get(cfg["env_key"])
     if not api_key:
         raise EnvironmentError(
-            "GROQ_API_KEY no encontrada en el entorno. "
+            f"{cfg['env_key']} no encontrada. "
             "Asegúrate de llamar a load_env_secure() antes de get_vanna()."
         )
 
-    # Cliente OpenAI apuntando a Groq
-    groq_client = OpenAI(
+    active_model = model or cfg["default_model"]
+    print(f"🤖 Proveedor: {cfg['label']} | Modelo: {active_model}")
+
+    # ── Crear cliente OpenAI-compatible ──────────────────────────────────────
+    llm_client = OpenAI(
         api_key=api_key,
-        base_url=_GROQ_BASE_URL,
+        base_url=cfg["base_url"],
     )
 
     vn = AtlasVanna(
-        client=groq_client,
+        client=llm_client,
         config={
-            "model": model,
-            "path":  str(_CHROMA_DIR),   # ChromaDB: carpeta persistente local
+            "model": active_model,
+            "path":  str(_CHROMA_DIR),
         },
     )
 
+    # ── Conexión MySQL (opcional) ─────────────────────────────────────────────
     if connect_db:
         vn.connect_to_mysql(
             host=os.environ.get("DB_HOST"),
