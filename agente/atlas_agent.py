@@ -35,6 +35,9 @@ if str(_ROOT) not in sys.path:
 
 from agente.mapa_ejecutor import TOOL_DEFINICION as _MAPA_EJECUTOR_TOOL
 
+# Cache en sesión del último DataFrame clientes+coords (para repintar sin re-consultar)
+_ULTIMO_DF: dict = {"df": None, "ciudad": None, "sql": None}
+
 TOOLS_DEFINICION = [
     {
         "name": "consultar_metricas",
@@ -375,6 +378,49 @@ TOOLS_DEFINICION = [
             "required": ["sql_clientes", "ciudad", "tipo"],
         },
     },
+    # ── Repintar el último mapa con nuevos colores (sin re-consultar BD) ────
+    {
+        "name": "repintar_mapa",
+        "description": (
+            "Repinta el ÚLTIMO mapa generado con una nueva segmentación de colores, "
+            "SIN volver a consultar la base de datos. "
+            "Úsala cuando el usuario ya tiene clientes cargados y quiere cambiar la visualización: "
+            "otro campo de color, otros colores por cuartil, o cambiar tipo de mapa. "
+            "SOLO funciona si ya existe un mapa previo en la sesión. "
+            "Tipos disponibles: puntos_simple (todos igual color), "
+            "puntos_cuartiles (rojo/amarillo/azul/gris por cuartil de campo_valor)."
+        ),
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "tipo": {
+                    "type": "string",
+                    "enum": ["puntos_simple", "puntos_cuartiles"],
+                    "description": "Tipo de visualización. Default: puntos_cuartiles si hay campo_valor, sino puntos_simple.",
+                },
+                "campo_valor": {
+                    "type": "string",
+                    "description": "Columna numérica para segmentar por cuartiles (ej: 'monto_pedido', 'deuda_total'). Requerido para puntos_cuartiles.",
+                },
+                "titulo": {
+                    "type": "string",
+                    "description": "Título del nuevo mapa.",
+                },
+                "colores": {
+                    "type": "object",
+                    "description": (
+                        "Colores personalizados opcionales. Claves: "
+                        "q4 (top 25%, default rojo #DC2626), "
+                        "q3 (50-75%, default amarillo #FACC15), "
+                        "q2 (25-50%, default azul claro #93C5FD), "
+                        "q1 (bottom 25%, default gris #9CA3AF), "
+                        "base (para puntos_simple, default #6D28D9)."
+                    ),
+                },
+            },
+            "required": ["tipo"],
+        },
+    },
     # ── SQL semántico via Vanna RAG ──────────────────────────────────────────
     {
         "name": "generar_sql_vanna",
@@ -475,6 +521,19 @@ REGLAS DE MAPA CRÍTICAS:
 - USA SIEMPRE generar_mapa_clientes para mapas de clientes. NUNCA ejecutar_codigo_mapa para esto.
 - ejecutar_codigo_mapa es SOLO para visualizaciones que no sean listas de clientes (ej: polígonos de zona, rutas de línea).
 - generar_mapa_clientes hace el merge con el cache de coordenadas internamente — NUNCA hagas el merge tú mismo.
+
+TIPOS DE MAPA (siempre puntos pequeños):
+- puntos_simple     → todos los puntos del mismo color (default cuando no hay campo numérico)
+- puntos_cuartiles  → rojo/amarillo/azul claro/gris por cuartil de campo_valor
+  Q4 (≥p75) = rojo, Q3 (p50–p75) = amarillo, Q2 (p25–p50) = azul claro, Q1 (<p25) = gris
+  Incluye leyenda automática con los rangos de valor.
+
+FLUJO DE REPINTADO (sin volver a la BD):
+Si el usuario ya tiene clientes cargados y pide cambiar colores o segmentación:
+→ Llama repintar_mapa(tipo="puntos_cuartiles", campo_valor="nombre_columna", titulo="...")
+→ Opcionalmente: colores={"q4":"#rojo","q3":"#amarillo","q2":"#azul","q1":"#gris"}
+→ Usa los datos ya en memoria — 0 queries a la BD.
+Columnas disponibles para repintar: están en resultado["columnas_disponibles"] del último generar_mapa_clientes.
 
 RESPUESTAS — FORMATO ESTRICTO:
 - Máximo 1-2 líneas de texto. NADA más.
@@ -655,21 +714,74 @@ def _ejecutar_herramienta(nombre: str, argumentos: dict) -> Any:
                 ),
             }
 
-        # 3. Pintar mapa
+        # 3. Guardar DataFrame en cache de sesión (para repintar sin re-consultar)
+        _ULTIMO_DF["df"]     = df_merge.copy()
+        _ULTIMO_DF["ciudad"] = ciudad
+        _ULTIMO_DF["sql"]    = sql
+
+        # 4. Pintar mapa — default puntos_simple si no se especifica otro tipo
+        tipo_final = tipo if tipo else "puntos_simple"
+
         resultado = pintar_mapa(
             df_merge,
-            tipo=tipo,
+            tipo=tipo_final,
             titulo=titulo,
             ciudad_id=ciudad,
             campo_valor=campo_valor,
             campo_color=campo_color,
-            nombre_archivo=titulo or tipo,
+            nombre_archivo=titulo or tipo_final,
         )
 
         resultado["n_clientes_filtro"] = n_clientes
         resultado["n_con_coords"]      = n_con_coords
         resultado["pct_cobertura_geo"] = round(100 * n_con_coords / n_clientes, 1) if n_clientes else 0
+        resultado["columnas_disponibles"] = [
+            c for c in df_merge.columns if c not in ("lat", "lon", "n_eventos_con_coords")
+        ]
 
+        return resultado
+
+    def _repintar_mapa(**kwargs):
+        """Repinta el último mapa con nueva segmentación de colores, sin re-consultar BD."""
+        df       = _ULTIMO_DF.get("df")
+        ciudad   = _ULTIMO_DF.get("ciudad")
+
+        if df is None or df.empty:
+            return {
+                "ok":    False,
+                "error": (
+                    "No hay datos de mapa en memoria. "
+                    "Genera un mapa primero con consultar_clientes + generar_mapa_clientes."
+                ),
+            }
+
+        from agente.map_renderer import pintar_mapa
+
+        tipo        = kwargs.get("tipo", "puntos_cuartiles")
+        campo_valor = kwargs.get("campo_valor")
+        titulo      = kwargs.get("titulo", "")
+        colores     = kwargs.get("colores") or {}
+
+        # Auto-detectar campo_valor si no se especificó y el tipo lo requiere
+        if tipo == "puntos_cuartiles" and not campo_valor:
+            numericas = [
+                c for c in df.columns
+                if c not in ("id_contacto", "lat", "lon")
+                and pd.api.types.is_numeric_dtype(df[c])
+            ]
+            if numericas:
+                campo_valor = numericas[0]
+            else:
+                tipo = "puntos_simple"  # fallback si no hay columna numérica
+
+        resultado = pintar_mapa(
+            df,
+            tipo=tipo,
+            titulo=titulo,
+            ciudad_id=ciudad,
+            campo_valor=campo_valor,
+            colores_cuartil=colores,
+        )
         return resultado
 
     def _generar_sql_vanna(**kwargs):
@@ -742,6 +854,7 @@ def _ejecutar_herramienta(nombre: str, argumentos: dict) -> Any:
         "actualizar_cache_coordenadas": _actualizar_cache,
         "consultar_clientes":         _consultar_clientes,
         "generar_mapa_clientes":      _generar_mapa_clientes,
+        "repintar_mapa":              _repintar_mapa,
         "generar_sql_vanna":          _generar_sql_vanna,
         "ejecutar_codigo_mapa":       ejecutar_codigo_mapa,
     }
@@ -833,7 +946,7 @@ class AtlasAgent:
                         print(f"  [→ {bloque.name}] {args_preview}...")
                         resultado = _ejecutar_herramienta(bloque.name, bloque.input)
                                         # Registrar último mapa / última consulta para la UI
-                        if bloque.name in ("ejecutar_codigo_mapa", "generar_mapa_clientes") \
+                        if bloque.name in ("ejecutar_codigo_mapa", "generar_mapa_clientes", "repintar_mapa") \
                                 and isinstance(resultado, dict) and resultado.get("ok"):
                             self._ultimo_mapa = resultado.get("html_path")
                         if bloque.name == "consultar_clientes" \

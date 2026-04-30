@@ -99,6 +99,103 @@ def _popup_text(row: pd.Series, excluir: list[str] | None = None) -> str:
 # Renderizadores por tipo
 # ─────────────────────────────────────────────────────────────────────────────
 
+def _render_puntos_simple(mapa, df: pd.DataFrame, color: str = "#6D28D9") -> int:
+    """Puntos pequeños uniformes — visualización base sin segmentación."""
+    import folium
+    n = 0
+    for _, row in df.iterrows():
+        if pd.isna(row["lat"]):
+            continue
+        folium.CircleMarker(
+            location=[row["lat"], row["lon"]],
+            radius=5,
+            color=color,
+            weight=1,
+            fill=True,
+            fill_color=color,
+            fill_opacity=0.80,
+            popup=folium.Popup(_popup_text(row), max_width=250),
+        ).add_to(mapa)
+        n += 1
+    return n
+
+
+def _render_puntos_cuartiles(
+    mapa,
+    df: pd.DataFrame,
+    campo_valor: str,
+    color_q4: str = "#DC2626",   # rojo        — top 25%  (mayor valor)
+    color_q3: str = "#FACC15",   # amarillo    — 50–75%
+    color_q2: str = "#93C5FD",   # azul claro  — 25–50%
+    color_q1: str = "#9CA3AF",   # gris        — bottom 25%
+) -> int:
+    """Puntos pequeños coloreados por cuartil del campo_valor.
+
+    Corte de colores:
+      ≥ p75  → color_q4 (rojo)     — los de mayor monto/valor
+      p50–p75→ color_q3 (amarillo)
+      p25–p50→ color_q2 (azul claro)
+      < p25  → color_q1 (gris)     — los de menor monto/valor
+    """
+    import folium
+
+    vals = pd.to_numeric(df[campo_valor], errors="coerce")
+    p75 = float(vals.quantile(0.75))
+    p50 = float(vals.quantile(0.50))
+    p25 = float(vals.quantile(0.25))
+
+    label = campo_valor.replace("_", " ").title()
+
+    def _fmt(v: float) -> str:
+        if abs(v) >= 1_000_000:
+            return f"${v/1_000_000:.1f}M"
+        if abs(v) >= 1_000:
+            return f"${v/1_000:.0f}K"
+        return f"{v:,.0f}"
+
+    leyenda_html = f"""
+    <div style="position:fixed;bottom:30px;left:20px;
+                background:rgba(255,255,255,0.93);border-radius:10px;
+                padding:10px 16px;font-size:12px;font-family:sans-serif;
+                box-shadow:0 2px 10px rgba(0,0,0,0.18);z-index:9999;line-height:2;">
+      <b style="font-size:13px">{label}</b><br>
+      <span style="color:{color_q4};font-size:16px">●</span> Top 25%  ≥ {_fmt(p75)}<br>
+      <span style="color:{color_q3};font-size:16px">●</span> 50–75%   {_fmt(p50)} – {_fmt(p75)}<br>
+      <span style="color:{color_q2};font-size:16px">●</span> 25–50%   {_fmt(p25)} – {_fmt(p50)}<br>
+      <span style="color:{color_q1};font-size:16px">●</span> Bottom 25% &lt; {_fmt(p25)}
+    </div>"""
+    mapa.get_root().html.add_child(folium.Element(leyenda_html))
+
+    n = 0
+    for _, row in df.iterrows():
+        if pd.isna(row["lat"]):
+            continue
+        val = pd.to_numeric(row.get(campo_valor), errors="coerce")
+        if pd.isna(val):
+            color = color_q1
+        elif val >= p75:
+            color = color_q4
+        elif val >= p50:
+            color = color_q3
+        elif val >= p25:
+            color = color_q2
+        else:
+            color = color_q1
+
+        folium.CircleMarker(
+            location=[row["lat"], row["lon"]],
+            radius=5,
+            color=color,
+            weight=1,
+            fill=True,
+            fill_color=color,
+            fill_opacity=0.82,
+            popup=folium.Popup(_popup_text(row), max_width=250),
+        ).add_to(mapa)
+        n += 1
+    return n
+
+
 def _render_puntos_bicolor(mapa, df: pd.DataFrame, campo_color: str,
                             color_verdadero: str = "green",
                             color_falso: str = "red") -> int:
@@ -209,7 +306,8 @@ def _render_clusters(mapa, df: pd.DataFrame) -> int:
 # Función pública principal
 # ─────────────────────────────────────────────────────────────────────────────
 
-TIPOS_VALIDOS = {"puntos_bicolor", "circulos_proporcionales", "heatmap", "clusters"}
+TIPOS_VALIDOS = {"puntos_bicolor", "circulos_proporcionales", "heatmap", "clusters",
+                 "puntos_simple", "puntos_cuartiles"}
 
 
 def pintar_mapa(
@@ -222,6 +320,7 @@ def pintar_mapa(
     color_verdadero: str = "green",
     color_falso: str = "red",
     color_circulos: str = "#DC2626",
+    colores_cuartil: dict | None = None,
     nombre_archivo: str = "",
 ) -> dict:
     """Genera un mapa HTML a partir de un DataFrame estándar.
@@ -277,7 +376,23 @@ def pintar_mapa(
         mapa.get_root().html.add_child(folium.Element(title_html))
 
     # Renderizar según tipo
-    if tipo == "puntos_bicolor":
+    colores = colores_cuartil or {}
+
+    if tipo == "puntos_simple":
+        n_puntos = _render_puntos_simple(mapa, df, color=colores.get("base", "#6D28D9"))
+
+    elif tipo == "puntos_cuartiles":
+        if not campo_valor:
+            return {"ok": False, "error": "puntos_cuartiles requiere campo_valor."}
+        n_puntos = _render_puntos_cuartiles(
+            mapa, df, campo_valor,
+            color_q4=colores.get("q4", "#DC2626"),   # rojo
+            color_q3=colores.get("q3", "#FACC15"),   # amarillo
+            color_q2=colores.get("q2", "#93C5FD"),   # azul claro
+            color_q1=colores.get("q1", "#9CA3AF"),   # gris
+        )
+
+    elif tipo == "puntos_bicolor":
         if not campo_color:
             return {"ok": False, "error": "puntos_bicolor requiere campo_color."}
         n_puntos = _render_puntos_bicolor(mapa, df, campo_color, color_verdadero, color_falso)
