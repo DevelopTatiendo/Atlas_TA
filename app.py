@@ -149,7 +149,7 @@ if st.session_state.get("last_ciudad") != ciudad:
 st.divider()
 
 # ── Tabs principales ──────────────────────────────────────────────────────────
-tab_mapas, tab_agente = st.tabs(["🗺️ Mapa de Muestras", "🤖 Atlas Agent"])
+tab_mapas, = st.tabs(["🗺️ Mapa de Muestras"])
 
 
 def _fmt_date(x) -> str:
@@ -308,9 +308,3 @@ with tab_mapas:
             unsafe_allow_html=True,
         )
 
-# ════════════════════════════════════════════════════════════════════════
-# TAB 2 — Atlas Agent chat
-# ════════════════════════════════════════════════════════════════════════
-with tab_agente:
-    from agente.atlas_chat import render_chat_tab
-    render_chat_tab(ciudad)

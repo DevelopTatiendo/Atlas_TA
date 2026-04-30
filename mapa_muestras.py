@@ -1466,15 +1466,7 @@ def generar_mapa_muestras_visual(
 
     n_puntos = len(df_filtrado) if not df_filtrado.empty else 0
 
-    # ── Enriquecer cache de coordenadas en segundo plano ─────────────────────
-    # Cada vez que se genera un mapa, las coordenadas de esta sesión
-    # alimentan el mapa simulado acumulado. Esto ocurre siempre, automáticamente.
-    try:
-        from agente.coordinate_cache import CoordinateCache
-        _cache = CoordinateCache()
-        _cache.actualizar_desde_eventos_df(df_filtrado)
-    except Exception as _ce:
-        pass  # El cache es opcional — si falla, el mapa igual se genera
+    # (cache de coordenadas del agente — solo disponible en produccion_v2)
 
     return filename, n_puntos, df_csv
 
