@@ -21,10 +21,12 @@ Hola, soy **Atlas Agent** 🗺️
 
 Dime qué clientes quieres ver en el mapa. Ejemplos:
 
-- *"Clientes con deuda vencida en Cali con saldo > 50 mil"*
-- *"Cobertura de la ruta Laureles en Medellín este mes"*
-- *"Calor de visitas en Bogotá en abril"*
-- *"Clientes activos en Barranquilla con pedidos en 2026"*
+- *"Clientes activos de Medellín con pedido válido en abril 2026"*
+- *"No-fieles de Cali sin visita en lo que va de 2026"*
+- *"Clientes de Bogotá con pedido de BluePet en el primer trimestre 2026"*
+- *"Clientes con deuda mayor a 50 mil en Barranquilla este mes"*
+- *"Cobertura de la ruta Aranjuez en Medellín desde enero 2026"*
+- *"Clientes con más de 500 puntos acumulados en Pereira"*
 """
 
 

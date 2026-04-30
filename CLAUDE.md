@@ -1,7 +1,7 @@
 # CLAUDE.md — Atlas TA · Contexto de desarrollo activo
 
 > Documento de contexto para sesiones de desarrollo con Claude (Cowork).
-> Actualizado: 29 de abril de 2026 · Rama: `produccion_2`
+> Actualizado: 30 de abril de 2026 · Rama: `produccion_2`
 
 ---
 
@@ -149,13 +149,22 @@ Usuario (lenguaje natural)
 
 ### 🔄 En progreso
 
-- [ ] **Validación completa del trainer** — pendiente correr `--validate-only --provider groq` y revisar los 20 SQLs generados. El error histórico es de tokens (rate limit), no de lógica.
+- [ ] **Validación completa del trainer** — pendiente correr `--validate-only --provider groq` y revisar los 10 SQLs de test. Requiere que se haya re-entrenado con CO IDs corregidos y que el cupo diario Groq esté disponible.
+
+### ✅ Completado (30 abril 2026)
+
+- [x] **GROQ_API_KEY2 fallback** — `get_vanna()` acepta `_key_override`; `get_vanna_groq_key2()` fuerza KEY2. Fallback automático en el agente si KEY1 devuelve 429.
+- [x] **Tool `generar_sql_vanna`** integrada en `atlas_agent.py`:
+  - Acepta pregunta en lenguaje natural + ciudad
+  - Llama a AtlasVanna.generate_sql()
+  - Fallback automático a GROQ_API_KEY2 en rate limit
+  - El SQL generado se pasa a consultar_clientes → generar_mapa_clientes (flujo existente)
+- [x] **System prompt actualizado** con Variante A (SQL directo) y Variante B (Vanna RAG)
 
 ### ⏳ Siguiente fase
 
-- [ ] **Integración en el agente** — decidir punto de entrada:
-  - **Opción A**: Tool `vanna_sql` dentro de `atlas_agent.py` (agente conversacional)
-  - **Opción B**: Tab separado en `app.py` (Streamlit directo)
+- [ ] **Re-entrenar con CO IDs corregidos** → `rmdir /s /q agente\vanna_sql\chroma_store` luego `python -m agente.vanna_sql.trainer --provider groq --no-validate`
+- [ ] **Validar 10 preguntas de test** → `python -m agente.vanna_sql.trainer --validate-only --provider groq` (cuando cupo Groq disponible)
 - [ ] **Ejecutar** `utils/generar_coordenadas_clientes.py` con VPN activa para generar CSVs de coordenadas base por CO
 - [ ] **Verificar campo** `ultimo_obsequio` en `vwContactos`: `SHOW COLUMNS FROM fullclean_contactos.vwContactos LIKE '%obsequio%'`
 - [ ] Commit y push a rama `produccion_2`
@@ -169,7 +178,7 @@ Usuario (lenguaje natural)
 | `ModuleNotFoundError: vanna.groq` | vanna 2.0 reescribió la API | Usar `vanna.legacy.openai` + endpoint OpenAI-compat |
 | MySQL al init sin VPN | `get_vanna()` conectaba siempre | Parámetro `connect_db=False` |
 | `llama-3.1-70b-versatile` decommissioned | Groq retiró el modelo | Default cambiado a `llama-3.3-70b-versatile` |
-| Rate limit 429 Groq | 100k tokens/día, 20 validaciones juntas | Sleep 4s entre preguntas + retry 30s |
+| Rate limit 429 Groq KEY1 | 100k tokens/día, 20 validaciones juntas | Sleep 4s entre preguntas + retry 30s; fallback automático a GROQ_API_KEY2 en el agente |
 | Rate limit 413 llama-3.1-8b | 6k TPM, prompt de 6,969 tokens | Cambio a modelos con más contexto |
 | Gemini 400 `null` en mensajes | Vanna añade `function_call: None` etc. | Override `submit_prompt()` en `AtlasVanna` (fix aplicado, pendiente validar) |
 | Verbose de Vanna en consola | Vanna imprime prompts completos | Override `log()` en `AtlasVanna` |

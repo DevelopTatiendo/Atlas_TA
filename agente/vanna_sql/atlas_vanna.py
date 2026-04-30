@@ -93,29 +93,31 @@ class AtlasVanna(ChromaDB_VectorStore, OpenAI_Chat):
 
 
 def get_vanna(
-    model:      str | None = None,
-    provider:   str | None = None,
-    connect_db: bool = True,
+    model:         str | None = None,
+    provider:      str | None = None,
+    connect_db:    bool = True,
+    _key_override: str | None = None,   # Para forzar una API key concreta
 ) -> AtlasVanna:
     """
     Fábrica principal.
 
     Parámetros:
-        model      → modelo a usar; si None usa el default del proveedor
-        provider   → 'gemini' | 'groq'; si None detecta automáticamente
-                     (prioridad: Gemini > Groq)
-        connect_db → si False omite la conexión MySQL (útil para training)
+        model          → modelo a usar; si None usa el default del proveedor
+        provider       → 'gemini' | 'groq'; si None detecta automáticamente
+                         (prioridad: Gemini > Groq)
+        connect_db     → si False omite la conexión MySQL (útil para training)
+        _key_override  → API key directa (útil para forzar GROQ_API_KEY2)
 
     Modelos recomendados:
       Gemini:  gemini-2.0-flash (rápido, 1M tokens/día, gratis)
                gemini-1.5-pro   (más potente, mismo límite)
-      Groq:    llama-3.3-70b-versatile (100k tokens/día)
+      Groq:    llama-3.3-70b-versatile (100k tokens/día por key)
     """
     # ── Detectar proveedor ────────────────────────────────────────────────────
     if provider is None:
         if os.environ.get("GEMINI_API_KEY"):
             provider = "gemini"
-        elif os.environ.get("GROQ_API_KEY"):
+        elif os.environ.get("GROQ_API_KEY") or os.environ.get("GROQ_API_KEY2"):
             provider = "groq"
         else:
             raise EnvironmentError(
@@ -127,7 +129,18 @@ def get_vanna(
     if not cfg:
         raise ValueError(f"Proveedor desconocido: '{provider}'. Usa 'gemini' o 'groq'.")
 
-    api_key = os.environ.get(cfg["env_key"])
+    # ── Resolver API key (KEY1 → KEY2 → override) ────────────────────────────
+    if _key_override:
+        api_key = _key_override
+        key_label = "(override directo)"
+    else:
+        api_key = os.environ.get(cfg["env_key"])
+        key_label = cfg["env_key"]
+        # Groq: fallback automático a KEY2 si KEY1 no existe
+        if not api_key and provider == "groq":
+            api_key = os.environ.get("GROQ_API_KEY2")
+            key_label = "GROQ_API_KEY2 (fallback)"
+
     if not api_key:
         raise EnvironmentError(
             f"{cfg['env_key']} no encontrada. "
@@ -135,7 +148,7 @@ def get_vanna(
         )
 
     active_model = model or cfg["default_model"]
-    print(f"🤖 Proveedor: {cfg['label']} | Modelo: {active_model}")
+    print(f"🤖 Proveedor: {cfg['label']} [{key_label}] | Modelo: {active_model}")
 
     # ── Crear cliente OpenAI-compatible ──────────────────────────────────────
     llm_client = OpenAI(
@@ -162,3 +175,34 @@ def get_vanna(
         )
 
     return vn
+
+
+def get_vanna_groq_key2(
+    model:      str | None = None,
+    connect_db: bool = False,
+) -> AtlasVanna:
+    """
+    Fábrica que fuerza GROQ_API_KEY2 como API key.
+    Útil como fallback cuando GROQ_API_KEY1 ha alcanzado el rate limit (429).
+
+    Uso típico (en el agente):
+        try:
+            vn = get_vanna(connect_db=False)
+            sql = vn.generate_sql(pregunta)
+        except Exception as e:
+            if "429" in str(e):
+                vn2 = get_vanna_groq_key2()
+                sql  = vn2.generate_sql(pregunta)
+    """
+    api_key = os.environ.get("GROQ_API_KEY2")
+    if not api_key:
+        raise EnvironmentError(
+            "GROQ_API_KEY2 no encontrada. "
+            "Verifica que esté en el .env y que load_env_secure() haya sido llamado."
+        )
+    return get_vanna(
+        model=model,
+        provider="groq",
+        connect_db=connect_db,
+        _key_override=api_key,
+    )

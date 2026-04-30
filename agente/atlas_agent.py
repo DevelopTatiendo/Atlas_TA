@@ -375,6 +375,36 @@ TOOLS_DEFINICION = [
             "required": ["sql_clientes", "ciudad", "tipo"],
         },
     },
+    # ── SQL semántico via Vanna RAG ──────────────────────────────────────────
+    {
+        "name": "generar_sql_vanna",
+        "description": (
+            "Traduce una pregunta en lenguaje natural a SQL usando el motor RAG de Vanna "
+            "(ChromaDB + Groq). Úsala cuando necesites armar una consulta de segmentación "
+            "de clientes y no estés seguro del SQL exacto: filtros por producto, línea, "
+            "ruta de cobro, estado CxC, puntos, fechas de pedido, etc. "
+            "Devuelve el SQL listo para pasar a consultar_clientes y generar_mapa_clientes. "
+            "NO usar para métricas de promotores ni consultas que ya conoces de memoria."
+        ),
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "pregunta": {
+                    "type": "string",
+                    "description": (
+                        "Descripción completa del segmento deseado en español, "
+                        "incluyendo ciudad, filtros de tiempo y cualquier condición específica. "
+                        "Ej: 'Clientes activos de Medellín con pedido de BluePet en abril 2026 y deuda > 0'."
+                    ),
+                },
+                "ciudad": {
+                    "type": "integer",
+                    "description": "id_centroope: Cali=2, Medellín=3, Bogotá=4, Pereira=5, Manizales=6, Bucaramanga=7, Barranquilla=8.",
+                },
+            },
+            "required": ["pregunta", "ciudad"],
+        },
+    },
     # Herramienta de código dinámico — importada desde mapa_ejecutor.py
     _MAPA_EJECUTOR_TOOL,
 ]
@@ -416,19 +446,30 @@ Para generar un mapa necesito saber:
 **① Ciudad · ② Período o edad de deuda · ③ Qué filtrar**
 
 Ejemplos válidos:
-- *"Clientes con deuda vencida > $50K en **Medellín**, mora entre 30 y 180 días"*
-- *"Cobertura de la ruta Laureles en **Cali** en **abril 2026**"*
-- *"Calor de visitas en **Bogotá** en **lo que va del mes**"*
-- *"Clientes activos de la ruta Aranjuez en **Medellín** con pedidos en **2026**"*
+- *"Clientes activos de **Medellín** con pedido válido en **abril 2026**"*
+- *"No-fieles de **Cali** sin visita en **lo que va de 2026**"*
+- *"Clientes de **Bogotá** con pedido de BluePet en **el primer trimestre 2026**"*
+- *"Clientes con deuda > $50K en **Barranquilla**, mora entre 30 y 180 días"*
+- *"Cobertura de la ruta Aranjuez en **Medellín** desde **enero 2026**"*
+- *"Clientes con más de 500 puntos acumulados en **Pereira**"*
 ---
 
 ━━━ FIN VALIDACIÓN ━━━
 
-FLUJO PARA MAPAS:
-1. Construye el SQL de filtro. El SQL debe traer id_contacto + atributos. NUNCA lat/lon.
-2. Llama consultar_clientes(sql, ciudad, tipo_mapa_sugerido, campo_valor/campo_color, titulo).
-3. Si n_con_coords > 0 → llama INMEDIATAMENTE generar_mapa_clientes con EL MISMO sql y parámetros. Sin esperar confirmación.
+FLUJO PARA MAPAS (dos variantes):
+
+▶ Variante A — SQL directo (cuando conoces el esquema):
+1. Construye el SQL tú mismo (id_contacto + atributos, NUNCA lat/lon).
+2. Llama consultar_clientes(sql, ciudad, tipo_mapa_sugerido, ...).
+3. Si n_con_coords > 0 → llama INMEDIATAMENTE generar_mapa_clientes con EL MISMO sql y parámetros.
 4. Si n_con_coords == 0 → informa en 1 línea.
+
+▶ Variante B — Vanna SQL (cuando la segmentación es compleja o involucra tablas poco frecuentes):
+1. Llama generar_sql_vanna(pregunta=<descripción detallada>, ciudad=<id_centroope>).
+2. Revisa el SQL devuelto: verifica que tenga id_contacto y los filtros de negocio correctos.
+3. Pasa ese SQL a consultar_clientes → generar_mapa_clientes (igual que Variante A pasos 2-4).
+Usa Variante B cuando el filtro involucre: líneas de producto, rutas de cobro, puntos/movimientos,
+subestados, o cualquier combinación compleja que no tienes memorizada.
 
 REGLAS DE MAPA CRÍTICAS:
 - USA SIEMPRE generar_mapa_clientes para mapas de clientes. NUNCA ejecutar_codigo_mapa para esto.
@@ -631,6 +672,62 @@ def _ejecutar_herramienta(nombre: str, argumentos: dict) -> Any:
 
         return resultado
 
+    def _generar_sql_vanna(**kwargs):
+        """
+        Genera SQL desde lenguaje natural usando Vanna RAG (ChromaDB + Groq).
+        Intenta con GROQ_API_KEY y hace fallback a GROQ_API_KEY2 si hay rate limit (429).
+        """
+        from config.secrets_manager import load_env_secure
+        load_env_secure()
+        from agente.vanna_sql.atlas_vanna import get_vanna, get_vanna_groq_key2
+
+        pregunta = kwargs.get("pregunta", "")
+        ciudad   = kwargs.get("ciudad", 3)
+
+        if not pregunta.strip():
+            return {"ok": False, "error": "El parámetro 'pregunta' no puede estar vacío."}
+
+        def _ejecutar_vanna(vn_fn, key_label: str) -> dict:
+            vn  = vn_fn(connect_db=False)
+            sql = vn.generate_sql(pregunta)
+            return {
+                "ok":      True,
+                "sql":     sql,
+                "ciudad":  ciudad,
+                "pregunta_original": pregunta,
+                "key_usada": key_label,
+                "nota": (
+                    "SQL generado por Vanna RAG. Verifica que incluya id_contacto "
+                    "y los filtros de negocio del CO correcto antes de llamar a "
+                    "consultar_clientes / generar_mapa_clientes."
+                ),
+            }
+
+        # Intento 1 — KEY1 (o auto-detect)
+        try:
+            return _ejecutar_vanna(get_vanna, "GROQ_API_KEY")
+        except Exception as e1:
+            es_rate_limit = any(
+                x in str(e1).lower()
+                for x in ("429", "rate_limit", "rate limit", "too many requests")
+            )
+            if es_rate_limit:
+                # Intento 2 — KEY2 fallback
+                try:
+                    print("  [Vanna] Rate limit KEY1 → intentando GROQ_API_KEY2...")
+                    return _ejecutar_vanna(get_vanna_groq_key2, "GROQ_API_KEY2 (fallback)")
+                except Exception as e2:
+                    return {
+                        "ok":    False,
+                        "error": (
+                            f"Rate limit en ambas keys Groq. "
+                            f"KEY1: {e1}. KEY2: {e2}. "
+                            "Intenta mañana cuando se reinicie el cupo diario (100k tokens/key)."
+                        ),
+                    }
+            # Error que no es rate limit
+            return {"ok": False, "error": f"Error generando SQL con Vanna: {e1}"}
+
     mapa_funciones = {
         "consultar_metricas":         h.consultar_metricas,
         "generar_mapa":               h.generar_mapa,
@@ -645,6 +742,7 @@ def _ejecutar_herramienta(nombre: str, argumentos: dict) -> Any:
         "actualizar_cache_coordenadas": _actualizar_cache,
         "consultar_clientes":         _consultar_clientes,
         "generar_mapa_clientes":      _generar_mapa_clientes,
+        "generar_sql_vanna":          _generar_sql_vanna,
         "ejecutar_codigo_mapa":       ejecutar_codigo_mapa,
     }
 
@@ -777,5 +875,5 @@ class AtlasAgent:
         self._ultima_consulta = None
 
     def recargar_contexto(self) -> None:
-        """Recarga el system prompt (útil si se agregaron nuevos ejemplos al banco)."""
+        """Recarga el system prompt (útil si se agregaron nuevos ejemplos)."""
         self._system = _build_system_prompt()

@@ -146,7 +146,7 @@ def _cli_main():
         print("  encrypt [input] [output]  - Cifra archivo .env")
         print("Ejemplo:")
         print("  python -m config.secrets_manager encrypt")
-        print("  python -m config.secrets_manager encrypt .env config/.env.enc")
+        print("  python -m config.secrets_manager encrypt config/.env config/.env.enc")
         return
     
     command = sys.argv[1]
