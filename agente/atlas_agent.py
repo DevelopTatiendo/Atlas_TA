@@ -531,7 +531,7 @@ TIPOS DE MAPA (siempre puntos pequeños):
 FLUJO DE REPINTADO (sin volver a la BD):
 Si el usuario ya tiene clientes cargados y pide cambiar colores o segmentación:
 → Llama repintar_mapa(tipo="puntos_cuartiles", campo_valor="nombre_columna", titulo="...")
-→ Opcionalmente: colores={"q4":"#rojo","q3":"#amarillo","q2":"#azul","q1":"#gris"}
+→ Opcionalmente: colores={{"q4":"#DC2626","q3":"#FACC15","q2":"#93C5FD","q1":"#9CA3AF"}}
 → Usa los datos ya en memoria — 0 queries a la BD.
 Columnas disponibles para repintar: están en resultado["columnas_disponibles"] del último generar_mapa_clientes.
 
@@ -697,7 +697,7 @@ def _ejecutar_herramienta(nombre: str, argumentos: dict) -> Any:
                 "ok": False,
                 "error": (
                     f"Cache de coordenadas vacío para ciudad {ciudad}. "
-                    "Ejecuta: python -m agente.coord_cache_parquet --ciudad {ciudad}"
+                    f"Ejecuta: python -m agente.coord_cache_parquet --ciudad {ciudad}"
                 ),
             }
 
