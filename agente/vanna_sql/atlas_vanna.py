@@ -23,11 +23,59 @@ Uso rápido:
 """
 
 import os
+import hashlib
 from pathlib import Path
 
 from openai import OpenAI
 from vanna.legacy.chromadb import ChromaDB_VectorStore
 from vanna.legacy.openai  import OpenAI_Chat
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Embedding sin onnxruntime — usa solo stdlib (hashlib + struct)
+# onnxruntime 1.25.x tiene incompatibilidad de ABI con numpy 1.25 en Windows.
+# Esta función es determinista y no necesita ningún paquete externo.
+# El retrieval semántico pierde algo de precisión pero funciona correctamente.
+# ─────────────────────────────────────────────────────────────────────────────
+
+class _HashEmbeddingFunction:
+    """
+    Embedding determinista de 384 dimensiones basado en SHA-256.
+    No requiere onnxruntime, torch ni sentence-transformers.
+    Compatible con ChromaDB 1.x — requiere name() y __call__(list[str]) → list[list[float]]
+    """
+    _DIM = 384
+
+    def name(self) -> str:  # requerido por ChromaDB 1.x
+        return "atlas-hash-ef-v1"
+
+    # ChromaDB puede llamar embed_query() en lugar de __call__() al hacer queries
+    def embed_query(self, text: str) -> list:
+        return self([text])[0]
+
+    def embed_documents(self, texts: list) -> list:
+        return self(texts)
+
+    def __call__(self, input: list) -> list:  # type: ignore[override]
+        results = []
+        for text in input:
+            # 1. Hash inicial del texto normalizado
+            seed = hashlib.sha256(text.lower().strip().encode("utf-8")).digest()
+            # 2. Extender a DIM valores usando bytes crudos (nunca produce NaN/Inf)
+            #    Cada byte → float en [-1, 1] via (b - 128) / 128.0
+            nums: list[float] = []
+            cur = seed
+            while len(nums) < self._DIM:
+                cur = hashlib.sha256(cur).digest()
+                for b in cur:
+                    nums.append((b - 128) / 128.0)
+            nums = nums[: self._DIM]
+            # 3. Normalizar a la esfera unitaria
+            mag = sum(x * x for x in nums) ** 0.5 or 1.0
+            results.append([x / mag for x in nums])
+        return results
+
+_HASH_EF = _HashEmbeddingFunction()
 
 # ── Ruta persistente del vector store (gitignoreada) ─────────────────────────
 _CHROMA_DIR = Path(__file__).parent / "chroma_store"
@@ -159,8 +207,9 @@ def get_vanna(
     vn = AtlasVanna(
         client=llm_client,
         config={
-            "model": active_model,
-            "path":  str(_CHROMA_DIR),
+            "model":              active_model,
+            "path":               str(_CHROMA_DIR),
+            "embedding_function": _HASH_EF,   # Sin onnxruntime — stdlib pura
         },
     )
 
@@ -198,7 +247,7 @@ def get_vanna_groq_key2(
     if not api_key:
         raise EnvironmentError(
             "GROQ_API_KEY2 no encontrada. "
-            "Verifica que esté en el .env y que load_env_secure() haya sido llamado."
+            "Verifica que este en el .env y que load_env_secure() haya sido llamado."
         )
     return get_vanna(
         model=model,

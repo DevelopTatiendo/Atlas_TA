@@ -21,17 +21,22 @@ if str(_ROOT) not in sys.path:
     sys.path.insert(0, str(_ROOT))
 
 from config.secrets_manager import load_env_secure
-load_env_secure(prefer_plain=True, enc_path="config/.env.enc",
-                pass_env_var="MAPAS_SECRET_PASSPHRASE", cache=False)
+
+_ENV_PLAIN = _ROOT / ".env"
+_ENV_ENC   = _ROOT / "config" / ".env.enc"
+load_env_secure(
+    prefer_plain=_ENV_PLAIN.exists(),
+    enc_path=str(_ENV_ENC),
+    pass_env_var="MAPAS_SECRET_PASSPHRASE",
+    cache=False,
+)
 
 # Diagnóstico: verificar variables críticas después de cargar el .env
 import os as _os
-_api_key = _os.getenv("ANTHROPIC_API_KEY", "")
+_api_key = _os.getenv("GROQ_API_KEY") or _os.getenv("GROQ_API_KEY2")
 if not _api_key:
-    _dotenv_path = str(_ROOT / ".env")
-    print(f"⚠️  ANTHROPIC_API_KEY no encontrada después de cargar {_dotenv_path}")
-    print("   Verifica que el archivo .env contiene exactamente: ANTHROPIC_API_KEY=sk-ant-...")
-    print("   (sin espacios antes del '=' y sin comillas alrededor del valor)")
+    print(f"⚠️  GROQ_API_KEY no encontrada en el entorno.")
+    print("   Verifica que el .env contiene GROQ_API_KEY=gsk_...")
     raise SystemExit(1)
 
 

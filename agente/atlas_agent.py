@@ -15,7 +15,8 @@ Uso:
     print(respuesta)
 
 Variables de entorno requeridas:
-    ANTHROPIC_API_KEY   — clave de la API de Anthropic
+    GROQ_API_KEY    — clave de la API de Groq (principal)
+    GROQ_API_KEY2   — clave de respaldo (fallback si KEY1 da 429)
 """
 
 from __future__ import annotations
@@ -178,7 +179,7 @@ TOOLS_DEFINICION = [
             "type": "object",
             "properties": {
                 "ciudad": {
-                    "type": "integer",
+                    "type": "string",
                     "description": "id_centroope: Cali=2, Medellín=3, Bogotá=4, Pereira=5, Manizales=6, Bucaramanga=7, Barranquilla=8.",
                 },
                 "fecha_inicio": {
@@ -200,7 +201,7 @@ TOOLS_DEFINICION = [
         "input_schema": {
             "type": "object",
             "properties": {
-                "ciudad": {"type": "integer", "description": "id_centroope de la ciudad."},
+                "ciudad": {"type": "string", "description": "id_centroope de la ciudad."},
                 "id_ruta": {"type": "integer", "description": "ID de la ruta."},
                 "nombre_ruta": {"type": "string", "description": "Nombre parcial de la ruta."},
                 "fecha_inicio": {"type": "string", "description": "Fecha inicio YYYY-MM-DD."},
@@ -220,7 +221,7 @@ TOOLS_DEFINICION = [
             "type": "object",
             "properties": {
                 "id_promotor": {"type": "integer", "description": "ID del promotor."},
-                "ciudad": {"type": "integer", "description": "id_centroope de la ciudad."},
+                "ciudad": {"type": "string", "description": "id_centroope de la ciudad."},
                 "fecha_inicio": {"type": "string", "description": "Fecha inicio YYYY-MM-DD."},
                 "fecha_fin": {"type": "string", "description": "Fecha fin YYYY-MM-DD."},
             },
@@ -256,14 +257,14 @@ TOOLS_DEFINICION = [
     {
         "name": "actualizar_cache_coordenadas",
         "description": (
-            "Actualiza el cache local de coordenadas de clientes. "
-            "Llamar antes de analizar_zona_promotor o cuando se quiera enriquecer el mapa simulado. "
-            "El cache acumula coordenadas — mejora con el tiempo."
+            "Construye o actualiza el archivo Parquet de coordenadas de clientes para una ciudad. "
+            "OBLIGATORIO correr esto al menos una vez por ciudad antes de poder generar mapas de clientes. "
+            "Sin este cache los mapas aparecen vacíos. Requiere conexión activa a la BD."
         ),
         "input_schema": {
             "type": "object",
             "properties": {
-                "ciudad": {"type": "integer", "description": "id_centroope (default: 3 = Medellín)."},
+                "ciudad": {"type": "string", "description": "id_centroope: Cali=2, Medellín=3, Bogotá=4, Pereira=5, Manizales=6, Bucaramanga=7, Barranquilla=8."},
                 "fecha_inicio": {"type": "string", "description": "Fecha desde (YYYY-MM-DD)."},
                 "fecha_fin": {"type": "string", "description": "Fecha hasta (YYYY-MM-DD, default: hoy)."},
             },
@@ -292,29 +293,13 @@ TOOLS_DEFINICION = [
                     ),
                 },
                 "ciudad": {
-                    "type": "integer",
-                    "description": "id_centroope: Cali=2, Medellín=3, Bogotá=4, Pereira=5, Manizales=6, Bucaramanga=7, Barranquilla=8.",
-                },
-                "schema_sql": {
                     "type": "string",
-                    "description": "Schema de BD (default: fullclean_contactos).",
+                    "description": "id_centroope: Cali=2, Medellín=3, Bogotá=4, Pereira=5, Manizales=6, Bucaramanga=7, Barranquilla=8.",
                 },
                 "tipo_mapa_sugerido": {
                     "type": "string",
-                    "enum": ["puntos_bicolor", "circulos_proporcionales", "heatmap", "clusters"],
-                    "description": "Tipo de mapa que usarás cuando el usuario confirme.",
-                },
-                "campo_valor": {
-                    "type": "string",
-                    "description": "Columna numérica para circulos_proporcionales o peso heatmap.",
-                },
-                "campo_color": {
-                    "type": "string",
-                    "description": "Columna 0/1 para puntos_bicolor.",
-                },
-                "titulo": {
-                    "type": "string",
-                    "description": "Título descriptivo del mapa.",
+                    "enum": ["puntos_simple", "puntos_cuartiles"],
+                    "description": "puntos_simple=todos igual color | puntos_cuartiles=rojo/amarillo/azul/gris por cuartil de campo_valor.",
                 },
             },
             "required": ["sql_clientes", "ciudad"],
@@ -344,35 +329,21 @@ TOOLS_DEFINICION = [
                     ),
                 },
                 "ciudad": {
-                    "type": "integer",
+                    "type": "string",
                     "description": "id_centroope para cargar el cache correcto. Cali=2, Medellín=3, Bogotá=4, Pereira=5, Manizales=6, Bucaramanga=7, Barranquilla=8.",
                 },
                 "tipo": {
                     "type": "string",
-                    "enum": ["puntos_bicolor", "circulos_proporcionales", "heatmap", "clusters"],
+                    "enum": ["puntos_simple", "puntos_cuartiles"],
                     "description": (
                         "Tipo de visualización: "
-                        "puntos_bicolor=verde/rojo (requiere campo_color 0/1), "
-                        "circulos_proporcionales=tamaño∝valor (requiere campo_valor numérico), "
-                        "heatmap=densidad de puntos, "
-                        "clusters=agrupación automática con popup."
+                        "puntos_simple=todos puntos pequeños del mismo color (sin campo_valor), "
+                        "puntos_cuartiles=rojo/amarillo/azul claro/gris por cuartil de campo_valor."
                     ),
                 },
                 "campo_valor": {
                     "type": "string",
-                    "description": "Nombre de columna numérica del SQL para circulos_proporcionales o peso en heatmap.",
-                },
-                "campo_color": {
-                    "type": "string",
-                    "description": "Nombre de columna 0/1 del SQL para puntos_bicolor (ej: 'visitado').",
-                },
-                "titulo": {
-                    "type": "string",
-                    "description": "Título visible en el mapa y nombre del archivo HTML.",
-                },
-                "schema_sql": {
-                    "type": "string",
-                    "description": "Schema de la BD para el SQL (default: fullclean_contactos).",
+                    "description": "SOLO incluir cuando tipo=puntos_cuartiles. Pasar el nombre exacto de la columna numérica del SQL (ej: deuda_total). NO incluir este campo para puntos_simple.",
                 },
             },
             "required": ["sql_clientes", "ciudad", "tipo"],
@@ -401,10 +372,6 @@ TOOLS_DEFINICION = [
                 "campo_valor": {
                     "type": "string",
                     "description": "Columna numérica para segmentar por cuartiles (ej: 'monto_pedido', 'deuda_total'). Requerido para puntos_cuartiles.",
-                },
-                "titulo": {
-                    "type": "string",
-                    "description": "Título del nuevo mapa.",
                 },
                 "colores": {
                     "type": "object",
@@ -444,7 +411,7 @@ TOOLS_DEFINICION = [
                     ),
                 },
                 "ciudad": {
-                    "type": "integer",
+                    "type": "string",
                     "description": "id_centroope: Cali=2, Medellín=3, Bogotá=4, Pereira=5, Manizales=6, Bucaramanga=7, Barranquilla=8.",
                 },
             },
@@ -546,21 +513,10 @@ OTROS FLUJOS:
 - Tabla desconocida → explorar_tabla antes de asumir columnas.
 - NUNCA inventes datos. SOLO SELECT/SHOW en BD.
 
-REGLAS PARA ejecutar_codigo_mapa:
-- El código DEBE asignar el mapa Folium a la variable `mapa`.
-- NO llamar mapa.save() — el ejecutor lo hace solo.
-- Usar tiles Esri: tiles='https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{{z}}/{{y}}/{{x}}', attr='Esri'
-- Usar sql_read(sql_string, schema='fullclean_contactos') para queries.
-- Aplicar TODOS los gotchas del esquema (CAST coords, JOIN ciudades, columnas correctas).
-
-FORMATO DE RESPUESTA:
-- Máximo 3 párrafos. Sin tablas largas. Sin bullets excesivos.
-- Primero los números clave. Luego la interpretación. Luego la acción concreta.
-- Si generaste mapa: indica la ruta del HTML y en una línea qué muestra.
-- Si faltan datos: una línea explicando qué herramienta resolvería el vacío.
-
-EJEMPLO INSIGHT BUENO:
-"Ruta Laureles tiene 134 no-fieles sin visitar este mes. De ellos, 89 tienen coordenadas concentradas en Laureles Norte, que además acumula 12 quejas de 'producto no llegó'. Corrección logística + visita a ese cluster = 15-20 pedidos potenciales."
+REGLAS ejecutar_codigo_mapa:
+- Variable destino: `mapa`. NO llamar mapa.save().
+- Tiles Esri: tiles='https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{{z}}/{{y}}/{{x}}', attr='Esri'
+- Queries: sql_read(sql, schema='fullclean_contactos'). Aplicar gotchas del esquema.
 
 {schema_ctx}
 """
@@ -575,6 +531,13 @@ def _ejecutar_herramienta(nombre: str, argumentos: dict) -> Any:
     from agente import explorar_bd as eb
     from agente.coordinate_cache import CoordinateCache
     from agente.mapa_ejecutor import ejecutar_codigo_mapa
+
+    # Groq devuelve ciudad como string aunque el schema diga integer — normalizar
+    if "ciudad" in argumentos and argumentos["ciudad"] is not None:
+        try:
+            argumentos["ciudad"] = int(argumentos["ciudad"])
+        except (ValueError, TypeError):
+            pass  # dejar como string; el handler lo gestionará
 
     def _explorar_tabla(**kwargs):
         accion = kwargs.get("accion")
@@ -595,12 +558,9 @@ def _ejecutar_herramienta(nombre: str, argumentos: dict) -> Any:
         return {"error": f"Accion desconocida: {accion}"}
 
     def _actualizar_cache(**kwargs):
-        cache = CoordinateCache()
-        return cache.actualizar_desde_bd(
-            ciudad=kwargs.get("ciudad", 3),
-            fecha_inicio=kwargs.get("fecha_inicio", "2026-01-01"),
-            fecha_fin=kwargs.get("fecha_fin"),
-        )
+        from agente.coord_cache_parquet import construir_cache_ciudad
+        ciudad_id = int(kwargs.get("ciudad", 3))
+        return construir_cache_ciudad(ciudad_id, verbose=True)
 
     def _consultar_clientes(**kwargs):
         from pre_procesamiento.db_utils import sql_read
@@ -874,6 +834,30 @@ def _ejecutar_herramienta(nombre: str, argumentos: dict) -> Any:
         }
 
 
+# ── Conversión de tools Anthropic → formato OpenAI/Groq ──────────────────────
+
+def _to_groq_tools(tools: list) -> list:
+    """Convierte la lista de tools de formato Anthropic a formato OpenAI/Groq.
+
+    Anthropic: {"name": ..., "description": ..., "input_schema": {...}}
+    Groq:      {"type": "function", "function": {"name":..., "description":..., "parameters":{...}}}
+    """
+    result = []
+    for t in tools:
+        result.append({
+            "type": "function",
+            "function": {
+                "name":        t["name"],
+                "description": t["description"],
+                "parameters":  t.get("input_schema", {"type": "object", "properties": {}}),
+            },
+        })
+    return result
+
+
+TOOLS_GROQ = _to_groq_tools(TOOLS_DEFINICION)
+
+
 # ── Clase principal del agente ────────────────────────────────────────────────
 
 class AtlasAgent:
@@ -883,31 +867,62 @@ class AtlasAgent:
     y ejecuta herramientas según necesite (incluida generación dinámica de mapas).
     """
 
-    def __init__(self, model: str = "claude-sonnet-4-6"):
-        try:
-            import anthropic
-        except ImportError:
-            raise ImportError(
-                "La librería anthropic no está instalada. "
-                "Ejecuta: pip install anthropic"
-            )
+    def __init__(self, model: str = "llama-3.3-70b-versatile"):
+        from openai import OpenAI
 
-        api_key = os.getenv("ANTHROPIC_API_KEY")
-        if not api_key:
+        key1 = os.getenv("GROQ_API_KEY")
+        key2 = os.getenv("GROQ_API_KEY2")
+        key3 = os.getenv("GROQ_API_KEY3")
+
+        if not any([key1, key2, key3]):
             raise EnvironmentError(
-                "Variable ANTHROPIC_API_KEY no definida. "
-                "Agrégala al archivo .env en la raíz del proyecto."
+                "No se encontró GROQ_API_KEY, GROQ_API_KEY2 ni GROQ_API_KEY3. "
+                "Llama a load_env_secure() antes de iniciar AtlasAgent."
             )
 
-        self._client    = anthropic.Anthropic(api_key=api_key)
-        self._model     = model
+        # max_retries=0: sin esperas automáticas de 30-40s que dropan Streamlit.
+        # El agente maneja reintentos con cambio de key en _intentar_fallback_key().
+        _groq_kwargs = dict(base_url="https://api.groq.com/openai/v1", max_retries=0)
+
+        self._client_key1 = OpenAI(api_key=key1, **_groq_kwargs) if key1 else None
+        self._client_key2 = OpenAI(api_key=key2, **_groq_kwargs) if key2 else None
+        self._client_key3 = OpenAI(api_key=key3, **_groq_kwargs) if key3 else None
+
+        # Orden de rotación: KEY1 → KEY2 → KEY3
+        self._key_rotation = [
+            ("GROQ_API_KEY",  self._client_key1),
+            ("GROQ_API_KEY2", self._client_key2),
+            ("GROQ_API_KEY3", self._client_key3),
+        ]
+
+        # Arrancar con la primera key disponible
+        for nombre, cliente in self._key_rotation:
+            if cliente is not None:
+                self._client     = cliente
+                self._key_activa = nombre
+                break
+
+        self._model   = model
         self._historial: list[dict] = []
-        # System prompt construido una vez por sesión (incluye schema context + ejemplos)
-        self._system    = _build_system_prompt()
-        # Último mapa generado (ruta al HTML). Lo consume atlas_chat.py tras cada respuesta.
+        self._system  = _build_system_prompt()
         self._ultimo_mapa: str | None = None
-        # Última consulta de clientes (resultado de consultar_clientes). La UI renderiza los KPIs.
         self._ultima_consulta: dict | None = None
+        print(f"🤖 AtlasAgent usando Groq [{self._key_activa}] | Modelo: {model}")
+
+    def _intentar_fallback_key(self) -> bool:
+        """Rota a la siguiente key disponible en la secuencia KEY1→KEY2→KEY3.
+        Devuelve True si el cambio fue exitoso, False si ya no quedan keys."""
+        orden = [n for n, c in self._key_rotation if c is not None]
+        if self._key_activa not in orden:
+            return False
+        idx = orden.index(self._key_activa)
+        if idx + 1 >= len(orden):
+            return False  # ya estamos en la última key
+        siguiente = orden[idx + 1]
+        self._client     = dict(self._key_rotation)[siguiente]
+        self._key_activa = siguiente
+        print(f"  ⚡ Rate limit [{orden[idx]}] → cambiando a [{siguiente}]", flush=True)
+        return True
 
     def preguntar(self, mensaje: str) -> str:
         """Envía un mensaje al agente y devuelve la respuesta como texto.
@@ -924,69 +939,116 @@ class AtlasAgent:
         self._historial.append({"role": "user", "content": mensaje})
 
         while True:
-            respuesta = self._client.messages.create(
-                model=self._model,
-                max_tokens=2500,
-                system=self._system,
-                tools=TOOLS_DEFINICION,
-                messages=self._historial,
-            )
+            try:
+                respuesta = self._client.chat.completions.create(
+                    model=self._model,
+                    max_tokens=2500,
+                    temperature=0,
+                    messages=[{"role": "system", "content": self._system}] + self._historial,
+                    tools=TOOLS_GROQ,
+                    tool_choice="auto",
+                )
+            except Exception as e:
+                err_str = str(e).lower()
+                # 429 por cualquier causa (TPD diario o TPM por minuto)
+                es_rate_limit = "429" in err_str or "rate_limit" in err_str or "rate limit" in err_str
+                if es_rate_limit:
+                    if self._intentar_fallback_key():
+                        continue   # reintentar con KEY2
+                    # Ambas keys agotadas → error claro sin colgar Streamlit
+                    return (
+                        "⚠️ Ambas claves Groq alcanzaron el límite de tokens. "
+                        "Espera unos minutos (límite por minuto) o hasta mañana (límite diario) y vuelve a intentar."
+                    )
+                raise
+
+            choice = respuesta.choices[0]
+            msg    = choice.message
+            razon  = choice.finish_reason
 
             # ── El agente quiere usar herramientas ──────────────────────────
-            if respuesta.stop_reason == "tool_use":
+            if razon == "tool_calls" and msg.tool_calls:
+                # Guardar turno del asistente con tool_calls en historial
                 self._historial.append({
-                    "role": "assistant",
-                    "content": respuesta.content,
+                    "role":       "assistant",
+                    "content":    msg.content or "",
+                    "tool_calls": [
+                        {
+                            "id":   tc.id,
+                            "type": "function",
+                            "function": {
+                                "name":      tc.function.name,
+                                "arguments": tc.function.arguments,
+                            },
+                        }
+                        for tc in msg.tool_calls
+                    ],
                 })
 
-                tool_results = []
-                for bloque in respuesta.content:
-                    if bloque.type == "tool_use":
-                        args_preview = json.dumps(bloque.input, ensure_ascii=False)[:80]
-                        print(f"  [→ {bloque.name}] {args_preview}...")
-                        resultado = _ejecutar_herramienta(bloque.name, bloque.input)
-                                        # Registrar último mapa / última consulta para la UI
-                        if bloque.name in ("ejecutar_codigo_mapa", "generar_mapa_clientes", "repintar_mapa") \
-                                and isinstance(resultado, dict) and resultado.get("ok"):
-                            self._ultimo_mapa = resultado.get("html_path")
-                        if bloque.name == "consultar_clientes" \
-                                and isinstance(resultado, dict) and resultado.get("ok"):
-                            self._ultima_consulta = resultado
-                        tool_results.append({
-                            "type": "tool_result",
-                            "tool_use_id": bloque.id,
-                            "content": json.dumps(resultado, ensure_ascii=False, default=str),
-                        })
+                for tc in msg.tool_calls:
+                    args_dict = json.loads(tc.function.arguments)
 
-                self._historial.append({
-                    "role": "user",
-                    "content": tool_results,
-                })
-                # Continuar el loop — el agente puede usar más herramientas
+                    # -- Print detallado segun tipo de herramienta
+                    _SQL_TOOLS = ("consultar_clientes", "generar_mapa_clientes")
+                    if tc.function.name in _SQL_TOOLS:
+                        ciudad_v = args_dict.get("ciudad", "?")
+                        tipo_v   = args_dict.get("tipo") or args_dict.get("tipo_mapa_sugerido", "")
+                        sql_v    = args_dict.get("sql_clientes", "")
+                        sep = "─" * 60
+                        print(f"
+  [-> {tc.function.name}]  ciudad={ciudad_v}  tipo={tipo_v}")
+                        print(f"  {sep}")
+                        print(f"  SQL COMPLETO:")
+                        print(f"{sql_v}")
+                        print(f"  {sep}
+", flush=True)
+                    elif tc.function.name == "generar_sql_vanna":
+                        print(f"
+  [-> generar_sql_vanna]  ciudad={args_dict.get(chr(39)+'ciudad'+chr(39),chr(39)+'?'+chr(39))}")
+                        print(f"  PREGUNTA: {args_dict.get(chr(39)+'pregunta'+chr(39),chr(39)+chr(39))}
+", flush=True)
+                    else:
+                        args_preview = json.dumps(args_dict, ensure_ascii=False)[:120]
+                        print(f"  [-> {tc.function.name}] {args_preview}...", flush=True)
 
-            # ── Respuesta final de texto ────────────────────────────────────
-            elif respuesta.stop_reason == "end_turn":
-                texto = ""
-                for bloque in respuesta.content:
-                    if hasattr(bloque, "text"):
-                        texto += bloque.text
+                    resultado = _ejecutar_herramienta(tc.function.name, args_dict)
 
-                self._historial.append({
-                    "role": "assistant",
-                    "content": texto,
-                })
+                    # Si fue Vanna, imprimir el SQL generado
+                    if tc.function.name == "generar_sql_vanna" and isinstance(resultado, dict):
+                        if resultado.get("ok"):
+                            sep = "─" * 60
+                            print(f"  {sep}")
+                            print(f"  SQL GENERADO POR VANNA:")
+                            print(resultado.get("sql",""), flush=True)
+                            print(f"  {sep}
+", flush=True)
+                        else:
+                            print(f"  [Vanna ERROR] {resultado.get(chr(39)+'error'+chr(39),chr(39)+chr(39))}
+", flush=True)
+
+                    if tc.function.name in ("ejecutar_codigo_mapa", "generar_mapa_clientes", "repintar_mapa")                             and isinstance(resultado, dict) and resultado.get("ok"):
+                        self._ultimo_mapa = resultado.get("html_path")
+                    if tc.function.name == "consultar_clientes"                             and isinstance(resultado, dict) and resultado.get("ok"):
+                        self._ultima_consulta = resultado
+
+                    self._historial.append({
+                        "role":         "tool",
+                        "tool_call_id": tc.id,
+                        "content":      json.dumps(resultado, ensure_ascii=False, default=str),
+                    })
+
+            elif razon == "stop":
+                texto = msg.content or ""
+                self._historial.append({"role": "assistant", "content": texto})
                 return texto
 
-            # ── Caso inesperado ─────────────────────────────────────────────
             else:
-                return f"[Agente detuvo con stop_reason inesperado: {respuesta.stop_reason}]"
+                return f"[Agente detuvo con finish_reason inesperado: {razon}]"
 
     def limpiar_historial(self) -> None:
-        """Reinicia el historial de conversación (nueva sesión)."""
+        """Reinicia el historial de conversacion."""
         self._historial = []
-        self._ultimo_mapa = None
-        self._ultima_consulta = None
 
-    def recargar_contexto(self) -> None:
-        """Recarga el system prompt (útil si se agregaron nuevos ejemplos)."""
-        self._system = _build_system_prompt()
+    def reiniciar(self) -> None:
+        """Alias de limpiar_historial para compatibilidad."""
+        self.limpiar_historial()

@@ -19,290 +19,88 @@ import json
 # ─────────────────────────────────────────────────────────────────────────────
 
 SCHEMA_TEXT = '''
-=== ESQUEMA BD — Atlas Agent (referencia fija) ===
+=== ESQUEMA BD — Atlas Agent ===
 
-SCHEMAS PRINCIPALES: fullclean_contactos | fullclean_telemercadeo | fullclean_cartera
+SCHEMAS: fullclean_contactos | fullclean_telemercadeo | fullclean_cartera
 
 ─── TABLAS CLAVE ─────────────────────────────────────────────────────────────
+ciudades       id, nombre, id_centroope  (Cali=2 Med=3 Bog=4 Per=5 Man=6 Buc=7 Bar=8)
+contactos      id (PK), nombre, id_barrio, id_categoria
+               → PK = .id  |  no-fieles: id_categoria NOT IN (42,55,58,59,60)
+barrios        Id (PK), barrio (nombre), id_ciudad  → columna nombre = .barrio
+vwEventos      id, id_contacto, id_autor(=promotor), fecha_evento,
+               coordenada_latitud VARCHAR, coordenada_longitud VARCHAR
+               → coords VARCHAR: CAST(... AS DECIMAL(10,6))  |  filtrar !='' !='0' IS NOT NULL
+               → SIN id_centroope: filtrar ciudad via JOIN barrios→ciudades
+quejas         id, id_contacto, cat(categoría), fecha, activa  → categoría en .cat
 
-ciudades          id, nombre, id_centroope
-                  → id_centroope es el identificador de ciudad usado en filtros
-                  → Cali=2, Medellín=3, Bogotá=4, Pereira=5, Manizales=6, Bucaramanga=7, Barranquilla=8
+─── RUTAS ────────────────────────────────────────────────────────────────────
+Logísticas:   rutas(id,nombre,id_centroope) + rutas_barrios(id_ruta,id_barrio)
+Cobro:        rutas_cobro(id,ruta,id_cobrador,activa) + rutas_cobro_zonas(id,id_ruta_cobro,id_barrio)
+              → nombre de ruta cobro = .ruta  (NO .nombre)
 
-contactos         id (PK), nombre, id_barrio, id_categoria
-                  → PK es .id, NO .id_contacto
-                  → no-fieles: id_categoria NOT IN (42, 55, 58, 59, 60)
+─── fullclean_telemercadeo (pedidos, llamadas) ───────────────────────────────
+pedidos        id, id_contacto, fecha_hora_pedido, es_venta, id_cobro
+               ⚠️ SIEMPRE fullclean_telemercadeo.pedidos — NUNCA en fullclean_cartera
+pedidos_det    id_pedido, id_item, cantidad  (sin nombre_producto)
+               ⚠️ SIEMPRE fullclean_telemercadeo.pedidos_det — NUNCA en fullclean_cartera
+               → id_item FK → fullclean_bodega.items.id (para filtrar por nombre de producto)
+llamadas       id, id_contacto, fecha_llamada, id_promotor
+llamadas_resp  id_llamada, contestada(1/0), id_respuesta
 
-barrios           Id (PK), barrio (nombre), id_ciudad
-                  → columna nombre = .barrio, NO .nombre
+─── fullclean_cartera (deuda) ────────────────────────────────────────────────
+facturas       id, id_contacto, fecha_factura, total, saldo_pendiente, vencida
+cobros         id, id_factura, fecha_cobro, valor_cobrado
 
-vwEventos         id, id_contacto, id_autor (= promotor), fecha_evento,
-                  coordenada_latitud VARCHAR, coordenada_longitud VARCHAR
-                  → id_autor es el promotor; no existe id_promotor en esta vista
-                  → coords son VARCHAR: CAST(coordenada_latitud AS DECIMAL(10,6))
-                  → coordenada válida: != '' AND != '0' AND IS NOT NULL
-                  → NO tiene id_centroope; filtrar por ciudad = JOIN ciudades vía barrios
+─── fullclean_bodega (productos) ─────────────────────────────────────────────
+items          id, nombre, id_presentacion
+               → filtrar por producto: JOIN fullclean_bodega.items i ON i.id=pd.id_item
+                 WHERE i.nombre LIKE '%NombreProducto%'
 
-quejas            id, id_contacto, cat (categoría), fecha, activa
-                  → categoría en columna .cat, no JOIN a tabla inconformidad
+─── GOTCHAS ──────────────────────────────────────────────────────────────────
+1. CAST coords: CAST(e.coordenada_latitud AS DECIMAL(10,6))  WHERE !='',!='0',IS NOT NULL
+2. CIUDAD en vwEventos/rutas_cobro: JOIN barrios b ON b.Id=c.id_barrio
+                                     JOIN ciudades ciu ON ciu.id=b.id_ciudad AND ciu.id_centroope=?
+3. PROMOTOR en vwEventos = e.id_autor  (no id_promotor)
+4. BARRIO nombre = b.barrio  |  RUTA COBRO nombre = rc.ruta  |  CONTACTO PK = c.id
+5. QUEJAS categoría = q.cat  (no JOIN a tabla inconformidad)
+6. pedidos/pedidos_det → fullclean_telemercadeo  |  facturas/cobros → fullclean_cartera
+7. PRODUCTO por nombre → JOIN fullclean_bodega.items i ON i.id=pd.id_item WHERE i.nombre LIKE '%X%'
+8. pedidos_det.id_pedido → pedidos.id  (NO se unen via facturas)
 
-─── DOS SISTEMAS DE RUTAS ────────────────────────────────────────────────────
-
-SISTEMA 1 — Logístico (zonas geográficas):
-  rutas           id, nombre, id_centroope  ← tiene id_centroope directo
-  rutas_barrios   id_ruta, id_barrio
-
-SISTEMA 2 — Cobro (por persona, con flags de pago):
-  rutas_cobro       id, ruta (nombre), id_cobrador, activa, meta_cobro
-                    → columna nombre = .ruta, NO .nombre
-  rutas_cobro_zonas id, id_ruta_cobro, id_barrio
-
-─── TABLAS TELEMERCADEO ──────────────────────────────────────────────────────
-
-pedidos           id, id_contacto, fecha_hora_pedido, es_venta, id_cobro
-pedidos_det       id_pedido, id_item, cantidad
-                  → NO tiene nombre_producto; usar id_item
-
-llamadas          id, id_contacto, fecha_llamada, id_promotor
-llamadas_respuestas id_llamada, contestada (1/0), id_respuesta
-
-─── TABLAS CARTERA ───────────────────────────────────────────────────────────
-
-facturas          id, id_contacto, fecha_factura, total, saldo_pendiente, vencida
-cobros            id, id_factura, fecha_cobro, valor_cobrado
-
-─── GOTCHAS CRÍTICOS ─────────────────────────────────────────────────────────
-
-1. COORDENADAS son VARCHAR → siempre CAST:
-   CAST(e.coordenada_latitud  AS DECIMAL(10,6)) AS latitud
-   CAST(e.coordenada_longitud AS DECIMAL(10,6)) AS longitud
-   WHERE e.coordenada_latitud != '' AND e.coordenada_latitud != '0'
-     AND e.coordenada_latitud IS NOT NULL
-
-2. CIUDAD FILTER en vwEventos y rutas_cobro requiere JOIN:
-   INNER JOIN barrios b ON b.Id = c.id_barrio
-   INNER JOIN ciudades ciu ON ciu.id = b.id_ciudad AND ciu.id_centroope = :ciudad
-
-3. PROMOTOR en vwEventos = e.id_autor (no id_promotor)
-
-4. RUTA COBRO nombre = rc.ruta (no rc.nombre)
-
-5. BARRIO nombre = b.barrio (no b.nombre)
-
-6. CONTACTOS PK = c.id (no c.id_contacto)
-
-7. QUEJAS categoría = q.cat (no JOIN a tabla inconformidad)
-
-─── JOINS CRÍTICOS DE REFERENCIA ─────────────────────────────────────────────
-
-# J1: Clientes de una ciudad de cobro (rutas_cobro)
+─── JOINS CRÍTICOS ───────────────────────────────────────────────────────────
+# Ciudad por ruta cobro
 FROM rutas_cobro rc
-JOIN rutas_cobro_zonas rcz ON rcz.id_ruta_cobro = rc.id
-JOIN barrios b ON b.Id = rcz.id_barrio
-JOIN ciudades ciu ON ciu.id = b.id_ciudad AND ciu.id_centroope = :ciudad
-JOIN contactos c ON c.id_barrio = b.Id
+JOIN rutas_cobro_zonas rcz ON rcz.id_ruta_cobro=rc.id
+JOIN barrios b ON b.Id=rcz.id_barrio
+JOIN ciudades ciu ON ciu.id=b.id_ciudad AND ciu.id_centroope=?
+JOIN contactos c ON c.id_barrio=b.Id
 
-# J2: Eventos con coords válidas filtrando por ciudad
-FROM vwEventos e
-JOIN contactos c ON c.id = e.id_contacto
-JOIN barrios b ON b.Id = c.id_barrio
-JOIN ciudades ciu ON ciu.id = b.id_ciudad AND ciu.id_centroope = :ciudad
-WHERE CAST(e.coordenada_latitud AS DECIMAL(10,6)) BETWEEN -12 AND -1
-  AND CAST(e.coordenada_longitud AS DECIMAL(10,6)) BETWEEN -82 AND -66
-
-# J3: Cobertura de ruta cobro en período
-SELECT rc.id, rc.ruta,
-  COUNT(DISTINCT c.id) AS n_clientes,
-  COUNT(DISTINCT e.id_contacto) AS visitados
-FROM rutas_cobro rc
-JOIN rutas_cobro_zonas rcz ON rcz.id_ruta_cobro = rc.id
-JOIN barrios b ON b.Id = rcz.id_barrio
-JOIN ciudades ciu ON ciu.id = b.id_ciudad AND ciu.id_centroope = :ciudad
-LEFT JOIN contactos c ON c.id_barrio = b.Id
-LEFT JOIN vwEventos e ON e.id_contacto = c.id AND e.fecha_evento >= :fi
-GROUP BY rc.id, rc.ruta
-
-# J4: Contactabilidad real (llamadas con respuesta)
-SELECT c.id, c.nombre,
-  SUM(lr.contestada) AS llamadas_contestadas
-FROM contactos c
-JOIN llamadas l ON l.id_contacto = c.id AND l.fecha_llamada >= :fi
-JOIN llamadas_respuestas lr ON lr.id_llamada = l.id
+# Clientes con pedido de producto (por nombre — ej: BluePet)
+SELECT c.id AS id_contacto, c.nombre
+FROM fullclean_contactos.contactos c
+JOIN fullclean_contactos.barrios b ON b.Id=c.id_barrio
+JOIN fullclean_contactos.ciudades ciu ON ciu.id=b.id_ciudad AND ciu.id_centroope=4
+JOIN fullclean_telemercadeo.pedidos p ON p.id_contacto=c.id
+JOIN fullclean_telemercadeo.pedidos_det pd ON pd.id_pedido=p.id
+JOIN fullclean_bodega.items i ON i.id=pd.id_item
+WHERE p.es_venta=1 AND i.nombre LIKE '%BluePet%'
+  AND p.fecha_hora_pedido BETWEEN '2026-01-01' AND '2026-03-31'
 GROUP BY c.id, c.nombre
 
-# J5: Deuda vencida por ruta cobro
-SELECT rc.ruta,
-  SUM(f.saldo_pendiente) AS deuda_total,
-  COUNT(DISTINCT f.id_contacto) AS clientes_con_deuda
+# Deuda vencida por ruta
+SELECT rc.ruta, SUM(f.saldo_pendiente) deuda, COUNT(DISTINCT f.id_contacto) clientes
 FROM fullclean_cartera.facturas f
-JOIN contactos c ON c.id = f.id_contacto
-JOIN barrios b ON b.Id = c.id_barrio
-JOIN rutas_cobro_zonas rcz ON rcz.id_barrio = b.Id
-JOIN rutas_cobro rc ON rc.id = rcz.id_ruta_cobro
-WHERE f.vencida = 1
-GROUP BY rc.id, rc.ruta
+JOIN fullclean_contactos.contactos c ON c.id=f.id_contacto
+JOIN fullclean_contactos.barrios b ON b.Id=c.id_barrio
+JOIN fullclean_contactos.rutas_cobro_zonas rcz ON rcz.id_barrio=b.Id
+JOIN fullclean_contactos.rutas_cobro rc ON rc.id=rcz.id_ruta_cobro
+WHERE f.vencida=1 GROUP BY rc.id,rc.ruta
 
-─── PATRONES FOLIUM ──────────────────────────────────────────────────────────
-
-TILES (usar siempre este provider — funciona en file://):
-  folium.Map(location=[lat, lon], zoom_start=13,
-             tiles='https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}',
-             attr='Esri')
-
-PUNTOS BICOLOR (visitados=verde / sin visitar=rojo):
-  color = 'green' if row['visitado'] else 'red'
-  folium.CircleMarker([lat, lon], radius=6, color=color, fill=True).add_to(mapa)
-
-HEATMAP de densidad:
-  from folium.plugins import HeatMap
-  HeatMap([[lat, lon, peso], ...]).add_to(mapa)
-
-CÍRCULOS PROPORCIONALES (ej: deuda):
-  radio = max(5, min(30, valor / 1_000_000 * 10))
-  folium.Circle([lat, lon], radius=radio*100, popup=f"${valor:,.0f}").add_to(mapa)
-
-CLUSTERS para muchos puntos:
-  from folium.plugins import MarkerCluster
-  cluster = MarkerCluster().add_to(mapa)
-  folium.Marker([lat, lon], popup=texto).add_to(cluster)
-
-GUARDAR: mapa.save('/ruta/al/archivo.html')
-
-─── TIPOS DE MAPA — PLANTILLAS COMPLETAS ────────────────────────────────────
-
-## TIPO 1: COBERTURA DE RUTA (visitados verde / sin visitar rojo)
-```python
-import folium
-from folium.plugins import MarkerCluster
-TILES = 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}'
-
-df = sql_read("""
-    SELECT c.id, c.nombre,
-           CAST(e.coordenada_latitud  AS DECIMAL(10,6)) AS lat,
-           CAST(e.coordenada_longitud AS DECIMAL(10,6)) AS lon,
-           MAX(e.fecha_evento) AS ultima_visita,
-           1 AS visitado
-    FROM fullclean_contactos.contactos c
-    JOIN fullclean_contactos.barrios b ON b.Id = c.id_barrio
-    JOIN fullclean_contactos.rutas_cobro_zonas rcz ON rcz.id_barrio = b.Id
-    JOIN fullclean_contactos.rutas_cobro rc ON rc.id = rcz.id_ruta_cobro
-    JOIN fullclean_contactos.ciudades ciu ON ciu.id = b.id_ciudad AND ciu.id_centroope = :ciudad
-    JOIN fullclean_contactos.vwEventos e ON e.id_contacto = c.id AND e.fecha_evento >= :fi
-    WHERE e.coordenada_latitud != '' AND e.coordenada_latitud != '0' AND e.coordenada_latitud IS NOT NULL
-      AND rc.ruta LIKE :ruta
-    GROUP BY c.id, c.nombre, lat, lon
-""", params={"ciudad": CIUDAD, "fi": "2026-01-01", "ruta": "%Laureles%"}, schema="fullclean_contactos")
-
-df_sinvisitar = sql_read("""
-    SELECT c.id, c.nombre, NULL AS lat, NULL AS lon, NULL AS ultima_visita, 0 AS visitado
-    FROM fullclean_contactos.contactos c
-    JOIN fullclean_contactos.barrios b ON b.Id = c.id_barrio
-    JOIN fullclean_contactos.rutas_cobro_zonas rcz ON rcz.id_barrio = b.Id
-    JOIN fullclean_contactos.rutas_cobro rc ON rc.id = rcz.id_ruta_cobro
-    JOIN fullclean_contactos.ciudades ciu ON ciu.id = b.id_ciudad AND ciu.id_centroope = :ciudad
-    WHERE rc.ruta LIKE :ruta
-""", params={"ciudad": CIUDAD, "ruta": "%Laureles%"}, schema="fullclean_contactos")
-
-df_todos = pd.concat([df, df_sinvisitar]).drop_duplicates("id", keep="first")
-df_geo = df_todos[df_todos["lat"].notna() & (df_todos["lat"] != 0)]
-
-centro = [df_geo["lat"].mean(), df_geo["lon"].mean()] if not df_geo.empty else [6.24, -75.58]
-mapa = folium.Map(location=centro, zoom_start=14, tiles=TILES, attr='Esri')
-for _, row in df_geo.iterrows():
-    color = "green" if row["visitado"] else "red"
-    folium.CircleMarker([row["lat"], row["lon"]], radius=7, color=color, fill=True,
-                        fill_opacity=0.8,
-                        popup=f"{row['nombre']}<br>Última: {row['ultima_visita']}").add_to(mapa)
-```
-
-## TIPO 2: DEUDA VENCIDA (círculos proporcionales al saldo)
-```python
-import folium
-TILES = 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}'
-
-df = sql_read("""
-    SELECT c.id, c.nombre,
-           CAST(e.coordenada_latitud  AS DECIMAL(10,6)) AS lat,
-           CAST(e.coordenada_longitud AS DECIMAL(10,6)) AS lon,
-           SUM(f.saldo_pendiente) AS deuda_total
-    FROM fullclean_cartera.facturas f
-    JOIN fullclean_contactos.contactos c ON c.id = f.id_contacto
-    JOIN fullclean_contactos.barrios b ON b.Id = c.id_barrio
-    JOIN fullclean_contactos.ciudades ciu ON ciu.id = b.id_ciudad AND ciu.id_centroope = :ciudad
-    JOIN fullclean_contactos.vwEventos e ON e.id_contacto = c.id
-    WHERE f.vencida = 1
-      AND e.coordenada_latitud != '' AND e.coordenada_latitud != '0' AND e.coordenada_latitud IS NOT NULL
-    GROUP BY c.id, c.nombre, lat, lon
-    HAVING deuda_total > 0
-""", params={"ciudad": CIUDAD}, schema="fullclean_cartera")
-
-df = df[df["lat"].notna() & (df["lat"] != 0)]
-centro = [df["lat"].mean(), df["lon"].mean()] if not df.empty else [6.24, -75.58]
-mapa = folium.Map(location=centro, zoom_start=13, tiles=TILES, attr='Esri')
-for _, row in df.iterrows():
-    radio = max(8, min(50, float(row["deuda_total"]) / 50_000))
-    folium.Circle([row["lat"], row["lon"]], radius=radio * 15,
-                  color="#DC2626", fill=True, fill_opacity=0.5,
-                  popup=f"{row['nombre']}<br>Deuda: ${row['deuda_total']:,.0f}").add_to(mapa)
-```
-
-## TIPO 3: CALOR DE ACTIVIDAD (heatmap de visitas)
-```python
-import folium
-from folium.plugins import HeatMap
-TILES = 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}'
-
-df = sql_read("""
-    SELECT CAST(e.coordenada_latitud  AS DECIMAL(10,6)) AS lat,
-           CAST(e.coordenada_longitud AS DECIMAL(10,6)) AS lon,
-           COUNT(*) AS visitas
-    FROM fullclean_contactos.vwEventos e
-    JOIN fullclean_contactos.contactos c ON c.id = e.id_contacto
-    JOIN fullclean_contactos.barrios b ON b.Id = c.id_barrio
-    JOIN fullclean_contactos.ciudades ciu ON ciu.id = b.id_ciudad AND ciu.id_centroope = :ciudad
-    WHERE e.fecha_evento >= :fi
-      AND e.coordenada_latitud != '' AND e.coordenada_latitud != '0' AND e.coordenada_latitud IS NOT NULL
-    GROUP BY lat, lon
-""", params={"ciudad": CIUDAD, "fi": "2026-04-01"}, schema="fullclean_contactos")
-
-df = df[df["lat"].notna() & (df["lat"] != 0)]
-centro = [df["lat"].mean(), df["lon"].mean()] if not df.empty else [6.24, -75.58]
-mapa = folium.Map(location=centro, zoom_start=13, tiles=TILES, attr='Esri')
-heat_data = [[row["lat"], row["lon"], row["visitas"]] for _, row in df.iterrows()]
-HeatMap(heat_data, radius=15, blur=10).add_to(mapa)
-```
-
-## TIPO 4: CLIENTES ACTIVOS con clusters
-```python
-import folium
-from folium.plugins import MarkerCluster
-TILES = 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}'
-
-df = sql_read("""
-    SELECT c.id, c.nombre, rc.ruta,
-           CAST(e.coordenada_latitud  AS DECIMAL(10,6)) AS lat,
-           CAST(e.coordenada_longitud AS DECIMAL(10,6)) AS lon,
-           MAX(e.fecha_evento) AS ultima_visita
-    FROM fullclean_contactos.vwEventos e
-    JOIN fullclean_contactos.contactos c ON c.id = e.id_contacto
-    JOIN fullclean_contactos.barrios b ON b.Id = c.id_barrio
-    JOIN fullclean_contactos.ciudades ciu ON ciu.id = b.id_ciudad AND ciu.id_centroope = :ciudad
-    LEFT JOIN fullclean_contactos.rutas_cobro_zonas rcz ON rcz.id_barrio = b.Id
-    LEFT JOIN fullclean_contactos.rutas_cobro rc ON rc.id = rcz.id_ruta_cobro
-    WHERE e.fecha_evento >= :fi
-      AND e.coordenada_latitud != '' AND e.coordenada_latitud != '0' AND e.coordenada_latitud IS NOT NULL
-    GROUP BY c.id, c.nombre, rc.ruta, lat, lon
-""", params={"ciudad": CIUDAD, "fi": "2026-04-01"}, schema="fullclean_contactos")
-
-df = df[df["lat"].notna() & (df["lat"] != 0)]
-centro = [df["lat"].mean(), df["lon"].mean()] if not df.empty else [6.24, -75.58]
-mapa = folium.Map(location=centro, zoom_start=13, tiles=TILES, attr='Esri')
-cluster = MarkerCluster().add_to(mapa)
-for _, row in df.iterrows():
-    folium.Marker([row["lat"], row["lon"]],
-                  popup=f"{row['nombre']}<br>Ruta: {row['ruta']}<br>Última: {row['ultima_visita']}",
-                  icon=folium.Icon(color="blue", icon="user")).add_to(cluster)
-```
+─── FOLIUM (ejecutar_codigo_mapa) ────────────────────────────────────────────
+TILES='https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}'
+CircleMarker radius=5-6 para puntos | HeatMap para densidad | MarkerCluster para >500 pts
+Variable destino: mapa  (NO llamar mapa.save())
 === FIN ESQUEMA ===
 '''
 

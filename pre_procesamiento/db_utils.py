@@ -12,7 +12,10 @@ def get_engine(schema: str | None = "fullclean_telemercadeo"):
     host = os.getenv("DB_HOST")
     # Usa mysql+mysqlconnector con SQLAlchemy 2.x
     url = f"mysql+mysqlconnector://{user}:{pwd}@{host}/{schema}?charset=utf8mb4"
-    return create_engine(url, future=True, pool_pre_ping=True)
+    return create_engine(
+        url, future=True, pool_pre_ping=True,
+        connect_args={"connection_timeout": 10},  # falla rápido si BD no responde
+    )
 
 def sql_read(query: str, params: list | dict | None = None, schema: str | None = "fullclean_telemercadeo") -> pd.DataFrame:
     engine = get_engine(schema)

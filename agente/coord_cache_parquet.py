@@ -141,6 +141,20 @@ CIUDADES: dict[int, str] = {
     8: "Barranquilla",
 }
 
+# Carpeta de CSVs fuente (generados externamente)
+_CSV_DIR = _ROOT / "static" / "datos" / "coordenadas clientes"
+
+# Nombre de carpeta CSV por id_centroope
+_CSV_FOLDER: dict[int, str] = {
+    2: "CALI",
+    3: "MEDELLIN",
+    4: "BOGOTA",
+    5: "PEREIRA",
+    6: "MANIZALES",
+    7: "BUCARAMANGA",
+    8: "BARRANQUILLA",
+}
+
 _LAT_MIN, _LAT_MAX = -4.5, 12.5
 _LON_MIN, _LON_MAX = -82.0, -66.0
 
@@ -273,13 +287,17 @@ def construir_cache_ciudad(ciudad_id: int, verbose: bool = True) -> dict:
     }
 
     try:
+        print(f"  [{nombre}] llamando sql_read...", flush=True)
         df = sql_read(
             _SQL_COORDS,
             params=params,
             schema="fullclean_contactos",
         )
-    except Exception as e:
-        logger.exception("[%s] Error en consulta", nombre)
+        print(f"  [{nombre}] sql_read OK — {len(df)} filas", flush=True)
+    except BaseException as e:
+        import traceback
+        print(f"  [{nombre}] ❌ ERROR ({type(e).__name__}): {e}", flush=True)
+        traceback.print_exc()
         return {
             "ciudad": nombre,
             "ciudad_id": ciudad_id,
@@ -483,30 +501,64 @@ def construir_cache_todas(
     return resultados
 
 
+def _cargar_desde_csv(ciudad_id: int) -> pd.DataFrame:
+    """
+    Lee el CSV fuente (static/datos/coordenadas clientes/{CIUDAD}/clientes.csv),
+    normaliza columnas y guarda como parquet para usos futuros.
+    Retorna DataFrame con columnas: id_contacto, lat, lon
+    """
+    folder = _CSV_FOLDER.get(ciudad_id)
+    nombre = CIUDADES.get(ciudad_id, str(ciudad_id))
+    if not folder:
+        return pd.DataFrame(columns=["id_contacto", "lat", "lon"])
+
+    csv_path = _CSV_DIR / folder / "clientes.csv"
+    if not csv_path.exists():
+        print(f"⚠️ [{nombre}] CSV no encontrado: {csv_path}", flush=True)
+        return pd.DataFrame(columns=["id_contacto", "lat", "lon"])
+
+    print(f"📂 [{nombre}] Cargando CSV → {csv_path.name} ...", flush=True)
+    df = pd.read_csv(
+        csv_path, sep=";", encoding="utf-8-sig",
+        dtype={"id_contacto": "Int64"},
+        float_precision="high",
+    )
+
+    # Normalizar nombres de columnas
+    df = df.rename(columns={"latitud": "lat", "longitud": "lon"})
+    df["lat"] = pd.to_numeric(df.get("lat"), errors="coerce")
+    df["lon"] = pd.to_numeric(df.get("lon"), errors="coerce")
+    df = df[df["id_contacto"].notna()].copy()
+    df["id_contacto"] = df["id_contacto"].astype("int64")
+
+    con_coords = int(df["lat"].notna().sum())
+    total = len(df)
+    print(f"✅ [{nombre}] {total:,} contactos | {con_coords:,} con coords", flush=True)
+
+    # Guardar como parquet para acelerar cargas futuras
+    out_path = _parquet_path(ciudad_id)
+    try:
+        df[["id_contacto", "lat", "lon"]].to_parquet(out_path, index=False, compression="snappy")
+        print(f"💾 [{nombre}] Parquet guardado → {out_path.name}", flush=True)
+    except Exception as e:
+        print(f"⚠️ [{nombre}] No se pudo guardar parquet: {e}", flush=True)
+
+    return df[["id_contacto", "lat", "lon"]]
+
+
 def cargar_coords(ciudad_id: int) -> pd.DataFrame:
     """
-    Carga el Parquet de coordenadas para una ciudad.
+    Carga coordenadas de clientes para una ciudad.
+    Prioridad: parquet (rápido) → CSV fuente (auto-convierte a parquet).
     """
     _validar_ciudad(ciudad_id)
-
     path = _parquet_path(ciudad_id)
 
-    if not path.exists():
-        nombre = CIUDADES.get(ciudad_id, str(ciudad_id))
-        print(
-            f"⚠️ Cache no encontrado para {nombre}. "
-            f"Ejecuta: construir_cache_ciudad({ciudad_id})"
-        )
-        return pd.DataFrame(
-            columns=[
-                "id_contacto",
-                "lat",
-                "lon",
-                "n_eventos_con_coords",
-            ]
-        )
+    if path.exists():
+        return pd.read_parquet(path)
 
-    return pd.read_parquet(path)
+    # Fallback: leer CSV y auto-convertir
+    return _cargar_desde_csv(ciudad_id)
 
 
 def buscar_coords(
@@ -561,9 +613,7 @@ def estado_cache() -> pd.DataFrame:
                     "id_centroope": cid,
                     "total": total,
                     "con_coords": con_coords,
-                    "pct_coords": round(100 * con_coords / total, 1)
-                    if total
-                    else 0,
+                    "pct_coords": round(100 * con_coords / total, 1) if total else 0,
                     "size_kb": path.stat().st_size // 1024,
                     "modificado": pd.Timestamp(path.stat().st_mtime, unit="s"),
                     "path": str(path),
@@ -596,27 +646,11 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(
         description="Construir cache de coordenadas de clientes"
     )
-
-    parser.add_argument(
-        "--ciudad",
-        type=int,
-        nargs="+",
-        help="id_centroope(s) a procesar. Ej: 3 o 3 2 4. Default: todas.",
-    )
-
-    parser.add_argument(
-        "--workers",
-        type=int,
-        default=4,
-        help="Hilos paralelos. Default: 4.",
-    )
-
-    parser.add_argument(
-        "--estado",
-        action="store_true",
-        help="Mostrar estado actual del cache sin reconstruir.",
-    )
-
+    parser.add_argument("--ciudad", type=int, nargs="+",
+                        help="id_centroope(s). Ej: 3 o 3 2 4. Default: todas.")
+    parser.add_argument("--workers", type=int, default=4)
+    parser.add_argument("--estado", action="store_true",
+                        help="Mostrar estado actual del cache sin reconstruir.")
     args = parser.parse_args()
 
     if args.estado:
@@ -624,7 +658,4 @@ if __name__ == "__main__":
         print("\n📊 Estado del cache de coordenadas:")
         print(df_estado.to_string(index=False))
     else:
-        construir_cache_todas(
-            ciudades=args.ciudad,
-            workers=args.workers,
-        )
+        construir_cache_todas(ciudades=args.ciudad, workers=args.workers)
