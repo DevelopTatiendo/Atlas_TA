@@ -389,6 +389,43 @@ TOOLS_DEFINICION = [
             "required": ["tipo"],
         },
     },
+    # ── Catálogo de productos/marcas ────────────────────────────────────────
+    {
+        "name": "buscar_catalogo",
+        "description": (
+            "Busca productos, ítems o marcas en el catálogo de bodega por nombre. "
+            "OBLIGATORIO llamar ANTES de construir cualquier SQL que filtre por producto o marca: "
+            "devuelve los id_item, id_producto, id_presentacion e id_marca exactos para usar en WHERE. "
+            "Úsala cuando el usuario mencione un producto, línea, marca o presentación específica "
+            "(ej: 'BluePet', 'Whiskas', 'shampoo', 'presentación 500ml'). "
+            "Sin los IDs correctos el SQL de filtro no funcionará."
+        ),
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "busqueda": {
+                    "type": "string",
+                    "description": (
+                        "Término a buscar: nombre de marca, producto o ítem. "
+                        "Ej: 'BluePet', 'Cat Chow', 'shampoo perro', '500ml'. "
+                        "Se aplica LIKE %busqueda% en nombre_item, nombre_producto y marca."
+                    ),
+                },
+                "tipo": {
+                    "type": "string",
+                    "enum": ["item", "producto", "marca", "todo"],
+                    "description": (
+                        "Dónde buscar: "
+                        "'item'=solo en nombre de ítem, "
+                        "'producto'=solo en nombre de producto, "
+                        "'marca'=solo en nombre de marca, "
+                        "'todo'=buscar en los tres campos (default)."
+                    ),
+                },
+            },
+            "required": ["busqueda"],
+        },
+    },
     # ── SQL semántico via Vanna RAG ──────────────────────────────────────────
     {
         "name": "generar_sql_vanna",
@@ -469,6 +506,15 @@ Ejemplos válidos:
 ---
 
 ━━━ FIN VALIDACIÓN ━━━
+
+FLUJO PARA FILTROS POR PRODUCTO / MARCA (OBLIGATORIO):
+Cuando el usuario mencione cualquier producto, marca, línea o presentación específica:
+1. Llama PRIMERO buscar_catalogo(busqueda="<término>") para obtener los IDs exactos.
+2. Con los ids_item devueltos, construye el JOIN en el SQL de clientes:
+   JOIN fullclean_telemercadeo.pedidos_det pd ON pd.id_pedido = p.id AND pd.id_item IN (<ids_item>)
+3. Continúa con el flujo normal de mapa (consultar_clientes → generar_mapa_clientes).
+NUNCA asumas IDs de productos de memoria. SIEMPRE usa buscar_catalogo primero.
+Si buscar_catalogo no encuentra resultados, informa al usuario y pide que confirme el nombre del producto.
 
 FLUJO PARA MAPAS (dos variantes):
 
@@ -790,6 +836,81 @@ def _ejecutar_herramienta(nombre: str, argumentos: dict) -> Any:
         )
         return resultado
 
+    def _buscar_catalogo(**kwargs):
+        from pre_procesamiento.db_utils import sql_read
+        busqueda = kwargs.get("busqueda", "").strip()
+        tipo     = kwargs.get("tipo", "todo")
+
+        if not busqueda:
+            return {"ok": False, "error": "El parámetro 'busqueda' no puede estar vacío."}
+
+        termino = busqueda.replace("'", "''")  # escape básico
+
+        if tipo == "item":
+            where = f"i.item LIKE '%{termino}%'"
+        elif tipo == "producto":
+            where = f"pr.producto LIKE '%{termino}%'"
+        elif tipo == "marca":
+            where = f"m.marca LIKE '%{termino}%'"
+        else:
+            where = (
+                f"i.item LIKE '%{termino}%' "
+                f"OR pr.producto LIKE '%{termino}%' "
+                f"OR m.marca LIKE '%{termino}%'"
+            )
+
+        sql = f"""
+SELECT
+    i.id           AS id_item,
+    i.item         AS nombre_item,
+    m.id           AS id_marca,
+    m.marca,
+    pr.id          AS id_producto,
+    pr.producto    AS nombre_producto,
+    pre.id         AS id_presentacion,
+    pre.presentacion AS nombre_presentacion
+FROM fullclean_bodega.items i
+LEFT JOIN fullclean_bodega.productos pr   ON pr.id  = i.id_producto
+LEFT JOIN fullclean_bodega.presentaciones pre ON pre.id = i.id_presentacion
+LEFT JOIN fullclean_bodega.marcas m       ON m.id   = pr.id_marca
+WHERE {where}
+ORDER BY m.marca, pr.producto, i.item
+LIMIT 200
+"""
+        try:
+            df = sql_read(sql, schema="fullclean_bodega")
+        except Exception as e:
+            return {"ok": False, "error": f"Error consultando catálogo: {e}"}
+
+        if df.empty:
+            return {
+                "ok": False,
+                "error": f"No se encontraron ítems que coincidan con '{busqueda}'.",
+                "sugerencia": "Intenta con un término más corto o revisa la ortografía.",
+            }
+
+        registros = df.to_dict(orient="records")
+        ids_item        = sorted(df["id_item"].dropna().astype(int).unique().tolist())
+        ids_producto    = sorted(df["id_producto"].dropna().astype(int).unique().tolist())
+        ids_marca       = sorted(df["id_marca"].dropna().astype(int).unique().tolist())
+        ids_presentacion= sorted(df["id_presentacion"].dropna().astype(int).unique().tolist())
+
+        return {
+            "ok":               True,
+            "n_resultados":     len(df),
+            "ids_item":         ids_item,
+            "ids_producto":     ids_producto,
+            "ids_marca":        ids_marca,
+            "ids_presentacion": ids_presentacion,
+            "registros":        registros,
+            "nota": (
+                "Usa ids_item en: JOIN fullclean_telemercadeo.pedidos_det pd ON pd.id_pedido = p.id "
+                "WHERE pd.id_item IN (...). "
+                "Para filtrar por marca usa ids_producto (pedidos_det.id_item viene de items, "
+                "que se relaciona a productos, que se relaciona a marcas)."
+            ),
+        }
+
     def _generar_sql_vanna(**kwargs):
         """
         Genera SQL desde lenguaje natural usando Vanna RAG (ChromaDB + Groq).
@@ -882,6 +1003,7 @@ def _ejecutar_herramienta(nombre: str, argumentos: dict) -> Any:
         "consultar_clientes":         _consultar_clientes,
         "generar_mapa_clientes":      _generar_mapa_clientes,
         "repintar_mapa":              _repintar_mapa,
+        "buscar_catalogo":            _buscar_catalogo,
         "generar_sql_vanna":          _generar_sql_vanna,
         "ejecutar_codigo_mapa":       ejecutar_codigo_mapa,
     }
