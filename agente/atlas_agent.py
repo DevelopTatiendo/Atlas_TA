@@ -1044,7 +1044,29 @@ def _to_groq_tools(tools: list) -> list:
     return result
 
 
-TOOLS_GROQ = _to_groq_tools(TOOLS_DEFINICION)
+TOOLS_LLM = _to_groq_tools(TOOLS_DEFINICION)
+
+
+# ── Sanitizador de mensajes para Gemini ──────────────────────────────────────
+# Gemini devuelve 400 INVALID_ARGUMENT si algún campo del mensaje tiene valor None.
+# Esta función elimina claves con None en profundidad antes de enviar a la API.
+
+def _sanitizar_mensajes(mensajes: list) -> list:
+    resultado = []
+    for msg in mensajes:
+        m = {k: v for k, v in msg.items() if v is not None}
+        if "tool_calls" in m:
+            tcs = []
+            for tc in m["tool_calls"]:
+                tc_limpio = {k: v for k, v in tc.items() if v is not None}
+                if "function" in tc_limpio:
+                    tc_limpio["function"] = {
+                        k: v for k, v in tc_limpio["function"].items() if v is not None
+                    }
+                tcs.append(tc_limpio)
+            m["tool_calls"] = tcs
+        resultado.append(m)
+    return resultado
 
 
 # ── Clase principal del agente ────────────────────────────────────────────────
@@ -1056,32 +1078,35 @@ class AtlasAgent:
     y ejecuta herramientas según necesite (incluida generación dinámica de mapas).
     """
 
-    def __init__(self, model: str = "llama-3.3-70b-versatile"):
+    def __init__(self, model: str = "gemini-2.0-flash"):
         from openai import OpenAI
 
-        key1 = os.getenv("GROQ_API_KEY")
-        key2 = os.getenv("GROQ_API_KEY2")
-        key3 = os.getenv("GROQ_API_KEY3")
+        key1 = os.getenv("GEMINI_API_KEY")
+        key2 = os.getenv("GEMINI_API_KEY2")
+        key3 = os.getenv("GEMINI_API_KEY3")
 
         if not any([key1, key2, key3]):
             raise EnvironmentError(
-                "No se encontró GROQ_API_KEY, GROQ_API_KEY2 ni GROQ_API_KEY3. "
+                "No se encontró GEMINI_API_KEY, GEMINI_API_KEY2 ni GEMINI_API_KEY3. "
                 "Llama a load_env_secure() antes de iniciar AtlasAgent."
             )
 
         # max_retries=0: sin esperas automáticas de 30-40s que dropan Streamlit.
         # El agente maneja reintentos con cambio de key en _intentar_fallback_key().
-        _groq_kwargs = dict(base_url="https://api.groq.com/openai/v1", max_retries=0)
+        _gemini_kwargs = dict(
+            base_url="https://generativelanguage.googleapis.com/v1beta/openai/",
+            max_retries=0,
+        )
 
-        self._client_key1 = OpenAI(api_key=key1, **_groq_kwargs) if key1 else None
-        self._client_key2 = OpenAI(api_key=key2, **_groq_kwargs) if key2 else None
-        self._client_key3 = OpenAI(api_key=key3, **_groq_kwargs) if key3 else None
+        self._client_key1 = OpenAI(api_key=key1, **_gemini_kwargs) if key1 else None
+        self._client_key2 = OpenAI(api_key=key2, **_gemini_kwargs) if key2 else None
+        self._client_key3 = OpenAI(api_key=key3, **_gemini_kwargs) if key3 else None
 
         # Orden de rotación: KEY1 → KEY2 → KEY3
         self._key_rotation = [
-            ("GROQ_API_KEY",  self._client_key1),
-            ("GROQ_API_KEY2", self._client_key2),
-            ("GROQ_API_KEY3", self._client_key3),
+            ("GEMINI_API_KEY",  self._client_key1),
+            ("GEMINI_API_KEY2", self._client_key2),
+            ("GEMINI_API_KEY3", self._client_key3),
         ]
 
         # Arrancar con la primera key disponible
@@ -1096,7 +1121,7 @@ class AtlasAgent:
         self._system  = _build_system_prompt()
         self._ultimo_mapa: str | None = None
         self._ultima_consulta: dict | None = None
-        print(f"🤖 AtlasAgent usando Groq [{self._key_activa}] | Modelo: {model}")
+        print(f"🤖 AtlasAgent usando Gemini [{self._key_activa}] | Modelo: {model}")
 
     def _intentar_fallback_key(self) -> bool:
         """Rota a la siguiente key disponible en la secuencia KEY1→KEY2→KEY3.
@@ -1110,7 +1135,7 @@ class AtlasAgent:
         siguiente = orden[idx + 1]
         self._client     = dict(self._key_rotation)[siguiente]
         self._key_activa = siguiente
-        print(f"  ⚡ Rate limit [{orden[idx]}] → cambiando a [{siguiente}]", flush=True)
+        print(f"  ⚡ Rate limit Gemini [{orden[idx]}] → cambiando a [{siguiente}]", flush=True)
         return True
 
     def preguntar(self, mensaje: str) -> str:
@@ -1129,12 +1154,16 @@ class AtlasAgent:
 
         while True:
             try:
+                # Gemini rechaza campos con valor None — sanitizar antes de enviar
+                mensajes_limpios = _sanitizar_mensajes(
+                    [{"role": "system", "content": self._system}] + self._historial
+                )
                 respuesta = self._client.chat.completions.create(
                     model=self._model,
-                    max_tokens=2500,
+                    max_tokens=8192,
                     temperature=0,
-                    messages=[{"role": "system", "content": self._system}] + self._historial,
-                    tools=TOOLS_GROQ,
+                    messages=mensajes_limpios,
+                    tools=TOOLS_LLM,
                     tool_choice="auto",
                 )
             except Exception as e:
@@ -1144,9 +1173,9 @@ class AtlasAgent:
                 if es_rate_limit:
                     if self._intentar_fallback_key():
                         continue   # reintentar con KEY2
-                    # Ambas keys agotadas → error claro sin colgar Streamlit
+                    # Todas las keys agotadas → error claro sin colgar Streamlit
                     return (
-                        "⚠️ Ambas claves Groq alcanzaron el límite de tokens. "
+                        "⚠️ Todas las claves Gemini alcanzaron el límite de tokens. "
                         "Espera unos minutos (límite por minuto) o hasta mañana (límite diario) y vuelve a intentar."
                     )
                 raise
