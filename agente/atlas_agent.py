@@ -1079,7 +1079,7 @@ class AtlasAgent:
     y ejecuta herramientas según necesite (incluida generación dinámica de mapas).
     """
 
-    def __init__(self, model: str = "gemini-2.5-flash-preview-04-17"):
+    def __init__(self, model: str = "gemini-2.5-flash"):
         from openai import OpenAI
 
         key1 = os.getenv("GEMINI_API_KEY")
