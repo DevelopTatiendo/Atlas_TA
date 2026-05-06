@@ -807,6 +807,7 @@ def _ejecutar_herramienta(nombre: str, argumentos: dict) -> Any:
                 ),
             }
 
+        import pandas as pd
         from agente.map_renderer import pintar_mapa
 
         tipo        = kwargs.get("tipo", "puntos_cuartiles")
@@ -1213,18 +1214,14 @@ class AtlasAgent:
                         tipo_v   = args_dict.get("tipo") or args_dict.get("tipo_mapa_sugerido", "")
                         sql_v    = args_dict.get("sql_clientes", "")
                         sep = "─" * 60
-                        print(f"
-  [-> {tc.function.name}]  ciudad={ciudad_v}  tipo={tipo_v}")
+                        print(f"\n  [-> {tc.function.name}]  ciudad={ciudad_v}  tipo={tipo_v}")
                         print(f"  {sep}")
                         print(f"  SQL COMPLETO:")
                         print(f"{sql_v}")
-                        print(f"  {sep}
-", flush=True)
+                        print(f"  {sep}\n", flush=True)
                     elif tc.function.name == "generar_sql_vanna":
-                        print(f"
-  [-> generar_sql_vanna]  ciudad={args_dict.get(chr(39)+'ciudad'+chr(39),chr(39)+'?'+chr(39))}")
-                        print(f"  PREGUNTA: {args_dict.get(chr(39)+'pregunta'+chr(39),chr(39)+chr(39))}
-", flush=True)
+                        print(f"\n  [-> generar_sql_vanna]  ciudad={args_dict.get(chr(39)+'ciudad'+chr(39),chr(39)+'?'+chr(39))}")
+                        print(f"  PREGUNTA: {args_dict.get(chr(39)+'pregunta'+chr(39),chr(39)+chr(39))}\n", flush=True)
                     else:
                         args_preview = json.dumps(args_dict, ensure_ascii=False)[:120]
                         print(f"  [-> {tc.function.name}] {args_preview}...", flush=True)
@@ -1238,11 +1235,9 @@ class AtlasAgent:
                             print(f"  {sep}")
                             print(f"  SQL GENERADO POR VANNA:")
                             print(resultado.get("sql",""), flush=True)
-                            print(f"  {sep}
-", flush=True)
+                            print(f"  {sep}\n", flush=True)
                         else:
-                            print(f"  [Vanna ERROR] {resultado.get(chr(39)+'error'+chr(39),chr(39)+chr(39))}
-", flush=True)
+                            print(f"  [Vanna ERROR] {resultado.get(chr(39)+'error'+chr(39),chr(39)+chr(39))}\n", flush=True)
 
                     if tc.function.name in ("ejecutar_codigo_mapa", "generar_mapa_clientes", "repintar_mapa")                             and isinstance(resultado, dict) and resultado.get("ok"):
                         self._ultimo_mapa = resultado.get("html_path")
