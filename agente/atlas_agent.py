@@ -1079,7 +1079,7 @@ class AtlasAgent:
     y ejecuta herramientas según necesite (incluida generación dinámica de mapas).
     """
 
-    def __init__(self, model: str = "gemini-2.0-flash"):
+    def __init__(self, model: str = "gemini-2.5-flash-preview-04-17"):
         from openai import OpenAI
 
         key1 = os.getenv("GEMINI_API_KEY")
@@ -1195,8 +1195,25 @@ class AtlasAgent:
                         "Verifica GEMINI_API_KEY en config/.env: la clave debe crearse en "
                         "https://aistudio.google.com/apikey y tener la API Generative Language habilitada."
                     )
+                # 503 — modelo sobrecargado: reintentar hasta 3 veces con pausa
+                es_sobrecarga = "503" in err_str or "unavailable" in err_str or "high demand" in err_str
+                if es_sobrecarga:
+                    import time
+                    _reintentos = getattr(self, "_reintentos_503", 0)
+                    if _reintentos < 3:
+                        self._reintentos_503 = _reintentos + 1
+                        print(f"  ⏳ Gemini 503 sobrecargado (intento {self._reintentos_503}/3) — esperando 5s...", flush=True)
+                        time.sleep(5)
+                        continue
+                    self._reintentos_503 = 0
+                    return (
+                        "⚠️ El modelo Gemini está temporalmente sobrecargado. "
+                        "Espera unos segundos y vuelve a intentar."
+                    )
+                self._reintentos_503 = 0
                 raise
 
+            self._reintentos_503 = 0  # reset al recibir respuesta exitosa
             choice = respuesta.choices[0]
             msg    = choice.message
             razon  = choice.finish_reason
