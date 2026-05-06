@@ -1,0 +1,163 @@
+# =========================
+# Python / Flask
+# =========================
+# Entornos virtuales
+.venv/
+venv/
+ENV/
+env/
+ambiente_desarrollo/
+*.virtualenv
+
+# Cachés / bytecode
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Build / distribución
+dist/
+build/
+*.egg-info/
+.eggs/
+
+# Cobertura / testing / type checking
+.coverage*
+*.coverage
+coverage.xml
+htmlcov/
+.cache/
+.pytest_cache/
+.mypy_cache/
+.pyre/
+.nox/
+.tox/
+pytest_cache/
+
+# Logs
+*.log
+*app.log
+logs/
+errors.log
+fatal_crash.log
+
+# =========================
+# Secretos — NUNCA versionar .env plano
+# =========================
+.env
+**/.env
+**/.env.local
+**/.env.cache
+**/.env.development
+**/.env.production
+# Excepción: plantillas sin valores reales
+!.env.example
+!config/.env.example
+# El cifrado SI va al repo (sin él no hay credenciales en producción)
+!config/.env.enc
+
+# =========================
+# IDE / OS
+# =========================
+.vscode/
+.idea/
+*.swp
+*.swo
+*.code-workspace
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# =========================
+# Node / Frontend (si aplica)
+# =========================
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+*.map
+package-lock.json
+yarn.lock
+pnpm-lock.yaml
+
+# =========================
+# Jupyter
+# =========================
+.ipynb_checkpoints/
+
+# =========================
+# IA / Cowork — sesiones de contexto (NO código)
+# =========================
+# CLAUDE.md SI se versiona — es documentación del proyecto
+.claude/sessions/
+.claude/cache/
+Claude/
+
+# =========================
+# App-specific — Atlas TA
+# =========================
+
+# Mapas HTML/PNG generados en runtime (se regeneran con la app)
+static/maps/*.html
+static/maps/*.png
+static/datos/*.parquet
+# Datos derivados en static/datos — se regeneran automáticamente
+static/datos/coordinate_cache.json
+static/datos/coords_co_*.parquet
+static/datos/coordenadas clientes/
+
+# Resultados de pruebas — outputs locales de desarrollo
+Pruebas/Resultados M1/
+Pruebas/Resultados M2/
+Pruebas/Resultados M3/
+Pruebas/Resultados_M2_Test/
+
+# Ejemplos generados por el agente (conversaciones JSON)
+agente/ejemplos/*.json
+agente/ejemplos/*.jsonl
+
+# Vanna AI — vector store local
+# Generado por: python -m agente.vanna_sql.trainer
+# NO va al repo: binario grande, se regenera con trainer.py
+agente/vanna_sql/chroma_store/
+
+# Screenshots del agente (generados por playwright en runtime)
+agente/screenshots/
+agente/*.png
+
+# Scripts temporales de diagnóstico / fix
+diagnostico_crash.py
+fix_entorno.ps1
+
+# Configuración local de desarrollo
+instance/
+.webassets-cache
+
+# Temporales
+*.tmp
+*.bak
+tmp/
+scratch/
+notas/
+
+# Profiling / depuración
+*.prof
+*.lprof
+*.stackdump
+
+# Contenedores
+docker-compose.override.yml
+.dockerenv
+
+# =========================
+# Excepciones — siempre versionar
+# =========================
+# Librerias vendorizadas del editor de cuadrantes
+!static/vendor/**
+!static/quadrants_editor/**
+
+# GeoJSON del proyecto (mapas base por ciudad)
+!geojson/**
+
+# Coordenadas base de clientes (base para mapas, no PII sensible)
+!static/datos/coordenadas/
