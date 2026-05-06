@@ -1169,15 +1169,31 @@ class AtlasAgent:
                 )
             except Exception as e:
                 err_str = str(e).lower()
-                # 429 por cualquier causa (TPD diario o TPM por minuto)
+                # 429 — rate limit: rotar a siguiente key
                 es_rate_limit = "429" in err_str or "rate_limit" in err_str or "rate limit" in err_str
                 if es_rate_limit:
                     if self._intentar_fallback_key():
-                        continue   # reintentar con KEY2
-                    # Todas las keys agotadas → error claro sin colgar Streamlit
+                        continue   # reintentar con siguiente key
                     return (
                         "⚠️ Todas las claves Gemini alcanzaron el límite de tokens. "
                         "Espera unos minutos (límite por minuto) o hasta mañana (límite diario) y vuelve a intentar."
+                    )
+                # 400 — clave inválida: intentar siguiente key antes de fallar
+                es_clave_invalida = (
+                    "400" in err_str and (
+                        "api key not valid" in err_str
+                        or "api_key_invalid" in err_str
+                        or "invalid_argument" in err_str
+                    )
+                )
+                if es_clave_invalida:
+                    print(f"  ⚠️ Clave inválida [{self._key_activa}]: {e}", flush=True)
+                    if self._intentar_fallback_key():
+                        continue   # reintentar con siguiente key
+                    return (
+                        "⚠️ Ninguna clave Gemini es válida. "
+                        "Verifica GEMINI_API_KEY en config/.env: la clave debe crearse en "
+                        "https://aistudio.google.com/apikey y tener la API Generative Language habilitada."
                     )
                 raise
 
