@@ -32,10 +32,16 @@ from vanna.legacy.openai  import OpenAI_Chat
 
 
 # ─────────────────────────────────────────────────────────────────────────────
-# Embedding sin onnxruntime — usa solo stdlib (hashlib + struct)
-# onnxruntime 1.25.x tiene incompatibilidad de ABI con numpy 1.25 en Windows.
-# Esta función es determinista y no necesita ningún paquete externo.
-# El retrieval semántico pierde algo de precisión pero funciona correctamente.
+# Embedding — sentence-transformers con fallback a hash puro (stdlib)
+#
+# Preferido: sentence-transformers/all-MiniLM-L6-v2
+#   • 384 dimensiones, retrieval semántico real
+#   • Requiere: pip install sentence-transformers>=2.7.0
+#
+# Fallback: _HashEmbeddingFunction
+#   • Determinista, sin dependencias externas
+#   • Activado automáticamente si sentence-transformers no está instalado
+#   • También se activa si onnxruntime tiene incompatibilidad de ABI (Windows)
 # ─────────────────────────────────────────────────────────────────────────────
 
 class _HashEmbeddingFunction:
@@ -49,7 +55,6 @@ class _HashEmbeddingFunction:
     def name(self) -> str:  # requerido por ChromaDB 1.x
         return "atlas-hash-ef-v1"
 
-    # ChromaDB puede llamar embed_query() en lugar de __call__() al hacer queries
     def embed_query(self, text: str) -> list:
         return self([text])[0]
 
@@ -59,10 +64,7 @@ class _HashEmbeddingFunction:
     def __call__(self, input: list) -> list:  # type: ignore[override]
         results = []
         for text in input:
-            # 1. Hash inicial del texto normalizado
             seed = hashlib.sha256(text.lower().strip().encode("utf-8")).digest()
-            # 2. Extender a DIM valores usando bytes crudos (nunca produce NaN/Inf)
-            #    Cada byte → float en [-1, 1] via (b - 128) / 128.0
             nums: list[float] = []
             cur = seed
             while len(nums) < self._DIM:
@@ -70,12 +72,52 @@ class _HashEmbeddingFunction:
                 for b in cur:
                     nums.append((b - 128) / 128.0)
             nums = nums[: self._DIM]
-            # 3. Normalizar a la esfera unitaria
             mag = sum(x * x for x in nums) ** 0.5 or 1.0
             results.append([x / mag for x in nums])
         return results
 
-_HASH_EF = _HashEmbeddingFunction()
+
+class _SentenceTransformerEF:
+    """
+    Wrapper sentence-transformers/all-MiniLM-L6-v2 para ChromaDB.
+    Ofrece retrieval semántico real (cosine similarity sobre embeddings densos).
+    """
+    _MODEL_NAME = "all-MiniLM-L6-v2"
+
+    def __init__(self):
+        from sentence_transformers import SentenceTransformer  # lazy import
+        self._model = SentenceTransformer(self._MODEL_NAME)
+
+    def name(self) -> str:
+        return f"sentence-transformers/{self._MODEL_NAME}"
+
+    def embed_query(self, text: str) -> list:
+        return self([text])[0]
+
+    def embed_documents(self, texts: list) -> list:
+        return self(texts)
+
+    def __call__(self, input: list) -> list:  # type: ignore[override]
+        embeddings = self._model.encode(input, normalize_embeddings=True)
+        return embeddings.tolist()
+
+
+def _build_embedding_function():
+    """
+    Intenta construir _SentenceTransformerEF; si falla por cualquier razón
+    (paquete no instalado, incompatibilidad de ABI con onnxruntime, etc.)
+    cae silenciosamente a _HashEmbeddingFunction.
+    """
+    try:
+        ef = _SentenceTransformerEF()
+        print("🔍 Embedding: sentence-transformers/all-MiniLM-L6-v2 (semántico)")
+        return ef
+    except Exception as exc:  # noqa: BLE001
+        print(f"⚠️  sentence-transformers no disponible ({exc}). Usando hash embedding.")
+        return _HashEmbeddingFunction()
+
+
+_EMBEDDING_FN = _build_embedding_function()
 
 # ── Ruta persistente del vector store (gitignoreada) ─────────────────────────
 _CHROMA_DIR = Path(__file__).parent / "chroma_store"
@@ -209,7 +251,7 @@ def get_vanna(
         config={
             "model":              active_model,
             "path":               str(_CHROMA_DIR),
-            "embedding_function": _HASH_EF,   # Sin onnxruntime — stdlib pura
+            "embedding_function": _EMBEDDING_FN,
         },
     )
 

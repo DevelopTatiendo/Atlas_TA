@@ -130,7 +130,7 @@ def render_chat_tab(ciudad: str) -> None:
 
     # Input
     if prompt := st.chat_input("¿Qué mapa quieres ver?", key="atlas_chat_input"):
-        _procesar_mensaje(prompt, _get_agent())
+        _procesar_mensaje(prompt, _get_agent(), ciudad=ciudad)
         st.rerun()
 
 
@@ -138,7 +138,7 @@ def render_chat_tab(ciudad: str) -> None:
 # Procesamiento
 # ─────────────────────────────────────────────────────────────────────────────
 
-def _procesar_mensaje(prompt: str, agent) -> None:
+def _procesar_mensaje(prompt: str, agent, ciudad: str | None = None) -> None:
     with st.chat_message("user"):
         st.markdown(prompt)
     st.session_state["atlas_chat_history"].append(
@@ -147,11 +147,17 @@ def _procesar_mensaje(prompt: str, agent) -> None:
 
     agent._ultima_consulta = None
 
+    # Inyectar ciudad activa del sidebar si el usuario no mencionó otra
+    if ciudad:
+        prompt_contextual = f"Ciudad activa en UI: {ciudad}. Consulta del usuario: {prompt}"
+    else:
+        prompt_contextual = prompt
+
     with st.chat_message("assistant"):
         indicadores = st.empty()
         indicadores.markdown("*Analizando…* ⏳")
 
-        respuesta = agent.preguntar(prompt)
+        respuesta = agent.preguntar(prompt_contextual)
 
         indicadores.empty()
 

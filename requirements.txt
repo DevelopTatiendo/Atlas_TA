@@ -43,3 +43,12 @@ werkzeug==2.2.3
 
 # ── UI helpers ───────────────────────────────────────────────
 Pillow>=10.0.0
+
+# ── Agente conversacional / Vanna SQL ────────────────────────
+openai>=1.30.0
+vanna>=0.7.4
+chromadb>=0.5.0
+# Embedding semántico para ChromaDB (retrieval real vs hash puro).
+# Si no puede instalarse (ej. onnxruntime ABI en Windows), atlas_vanna.py
+# cae automáticamente al embedding hash sin romper nada.
+sentence-transformers>=2.7.0
