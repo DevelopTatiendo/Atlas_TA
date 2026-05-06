@@ -279,7 +279,8 @@ TOOLS_DEFINICION = [
             "Ejecuta el SQL de filtro, cuenta cuántos clientes cumplen la condición, "
             "cuántos tienen coordenadas en el cache, y calcula KPIs automáticos "
             "según las columnas del resultado (monetarias, flags, fechas, conteos). "
-            "Muestra el resumen al usuario y ESPERA su confirmación antes de generar el mapa. "
+            "Calcula resumen y KPIs previos. En flujo automático, si n_con_coords > 0, "
+            "continuar INMEDIATAMENTE con generar_mapa_clientes usando el mismo SQL y parámetros. "
             "NUNCA llames generar_mapa_clientes sin haber llamado consultar_clientes primero."
         ),
         "input_schema": {
@@ -554,7 +555,13 @@ def _ejecutar_herramienta(nombre: str, argumentos: dict) -> Any:
         elif accion == "explorar_columna":
             return eb.explorar_relacion(tabla, kwargs.get("columna", ""), schema)
         elif accion == "select":
-            return eb.ejecutar_select(kwargs.get("sql", ""), schema, kwargs.get("limite", 200))
+            sql_sel = kwargs.get("sql", "")
+            from agente.sql_guard import validar_sql_solo_lectura
+            try:
+                validar_sql_solo_lectura(sql_sel)
+            except ValueError as e:
+                return {"error": f"SQL rechazado: {e}"}
+            return eb.ejecutar_select(sql_sel, schema, kwargs.get("limite", 200))
         return {"error": f"Accion desconocida: {accion}"}
 
     def _actualizar_cache(**kwargs):
@@ -570,6 +577,26 @@ def _ejecutar_herramienta(nombre: str, argumentos: dict) -> Any:
         sql        = kwargs.get("sql_clientes", "")
         ciudad     = kwargs.get("ciudad", 3)
         schema_sql = kwargs.get("schema_sql", "fullclean_contactos")
+
+        # 0. Validar SQL antes de ejecutar
+        from agente.sql_guard import (
+            validar_sql_mapa_clientes, validar_join_llamadas, validar_volumen,
+        )
+        from agente.schema_context import registrar_buena, registrar_error
+        try:
+            validar_sql_mapa_clientes(sql)
+            validar_join_llamadas(sql)
+        except ValueError as e:
+            registrar_error(
+                error=str(e),
+                patron_incorrecto=sql[:300],
+                fix="Asegurar que el SQL incluya id_contacto, omita lat/lon y use INNER JOIN con llamadas_respuestas si aplica.",
+            )
+            return {"ok": False, "error": f"SQL rechazado por validador: {e}"}
+
+        vol = validar_volumen(sql, schema_sql, sql_read)
+        if not vol["ok"]:
+            return vol
 
         # 1. Ejecutar SQL
         try:
@@ -600,6 +627,11 @@ def _ejecutar_herramienta(nombre: str, argumentos: dict) -> Any:
         # 5. Muestra de primeras filas (sin lat/lon)
         cols_muestra = [c for c in df.columns if c not in ("lat", "lon")]
         muestra = df[cols_muestra].head(5).to_dict(orient="records")
+
+        # 6. Registrar consulta exitosa para aprendizaje
+        _pregunta_ctx = kwargs.get("pregunta_original", "")
+        if _pregunta_ctx:
+            registrar_buena(_pregunta_ctx, sql, herramienta="consultar_clientes")
 
         resultado = {
             "ok":           True,
@@ -633,6 +665,20 @@ def _ejecutar_herramienta(nombre: str, argumentos: dict) -> Any:
         titulo     = kwargs.get("titulo", "")
         campo_valor = kwargs.get("campo_valor")
         campo_color = kwargs.get("campo_color")
+
+        # 0. Validar SQL antes de ejecutar
+        from agente.sql_guard import (
+            validar_sql_mapa_clientes, validar_join_llamadas, validar_volumen,
+        )
+        try:
+            validar_sql_mapa_clientes(sql)
+            validar_join_llamadas(sql)
+        except ValueError as e:
+            return {"ok": False, "error": f"SQL rechazado por validador: {e}"}
+
+        vol = validar_volumen(sql, schema_sql, sql_read)
+        if not vol["ok"]:
+            return vol
 
         # 1. Ejecutar SQL del agente
         try:
@@ -762,6 +808,27 @@ def _ejecutar_herramienta(nombre: str, argumentos: dict) -> Any:
         def _ejecutar_vanna(vn_fn, key_label: str) -> dict:
             vn  = vn_fn(connect_db=False)
             sql = vn.generate_sql(pregunta)
+
+            # Validar SQL generado antes de devolverlo
+            from agente.sql_guard import validar_sql_solo_lectura, validar_join_llamadas
+            from agente.schema_context import registrar_buena, registrar_error
+            try:
+                validar_sql_solo_lectura(sql)
+                validar_join_llamadas(sql)
+            except ValueError as ve:
+                registrar_error(
+                    error=str(ve),
+                    patron_incorrecto=sql[:300] if sql else "(vacío)",
+                    fix="Revisar trainer o reformular la pregunta para incluir los JOIN obligatorios.",
+                )
+                return {
+                    "ok": False,
+                    "error": f"SQL generado por Vanna no pasó validación: {ve}",
+                    "sql_rechazado": sql,
+                    "accion": "Revisa el trainer o reformula la pregunta.",
+                }
+
+            registrar_buena(pregunta, sql, herramienta="generar_sql_vanna")
             return {
                 "ok":      True,
                 "sql":     sql,

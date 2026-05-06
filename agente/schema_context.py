@@ -1,104 +1,147 @@
 """Contexto de esquema fijo para Atlas Agent.
 
-Este módulo expone un bloque de texto compacto (~900 tokens) con:
+Expone SCHEMA_TEXT (~1200 tokens) inyectado en el system prompt:
   - Tablas clave y columnas relevantes
-  - Los dos sistemas de rutas (logístico vs cobro)
-  - Gotchas SQL críticos descubiertos en producción
-  - Patrones Folium para los 4 tipos de mapa más usados
-  - 5 JOINs críticos como referencia
-
-Cargado una vez por sesión e inyectado en el system prompt del agente.
+  - IDs de CO desde agente.constants (fuente única)
+  - Reglas críticas de negocio: pedido válido, llamadas, contactabilidad, mapas
+  - Cadenas de JOIN más usadas como referencia
+  - Banco de aprendizaje: buenas.jsonl / errores.jsonl
 """
 
 from __future__ import annotations
 from pathlib import Path
 import json
 
+from agente.constants import CIUDADES_LABEL
+
 # ─────────────────────────────────────────────────────────────────────────────
-# ESQUEMA FIJO  (~900 tokens)
+# ESQUEMA FIJO
 # ─────────────────────────────────────────────────────────────────────────────
 
-SCHEMA_TEXT = '''
+SCHEMA_TEXT = f'''
 === ESQUEMA BD — Atlas Agent ===
 
-SCHEMAS: fullclean_contactos | fullclean_telemercadeo | fullclean_cartera
+SCHEMAS: fullclean_contactos | fullclean_telemercadeo | fullclean_cartera | fullclean_bodega | fullclean_personal | fullclean_general
+
+─── CENTROS DE OPERACIÓN (id_centroope) ──────────────────────────────────────
+{CIUDADES_LABEL}
+Join obligatorio para filtrar ciudad:
+    INNER JOIN fullclean_contactos.ciudades ci ON ci.id = c.id_ciudad
+    Filtrar: WHERE ci.id_centroope = [N]
 
 ─── TABLAS CLAVE ─────────────────────────────────────────────────────────────
-ciudades       id, nombre, id_centroope  (Cali=2 Med=3 Bog=4 Per=5 Man=6 Buc=7 Bar=8)
-contactos      id (PK), nombre, id_barrio, id_categoria
-               → PK = .id  |  no-fieles: id_categoria NOT IN (42,55,58,59,60)
-barrios        Id (PK), barrio (nombre), id_ciudad  → columna nombre = .barrio
-vwEventos      id, id_contacto, id_autor(=promotor), fecha_evento,
+contactos      id (PK→alias id_contacto), nombre, id_barrio, id_ciudad,
+               id_categoria, id_canal(2=directo), id_vendedor, id_base,
+               id_subestado, estado_cxc(0,1=activo), cant_obsequios,
+               saldo, edad_deuda, ultima_compra, id_resp_ult_llamada
+               → NO usar ultima_llamada como contactabilidad real
+ciudades       id, ciudad, id_centroope
+barrios        Id (PK, mayúscula), barrio  → nombre = .barrio
+categorias     id, categoria
+bases          id, base
+contactos_subestado    contactos_subestadoid (PK), descripcion
+contactos_medios_de_contacto   id, medio_contacto
+vwEventos      idEvento, id_contacto, id_autor(=promotor), fecha_evento,
                coordenada_latitud VARCHAR, coordenada_longitud VARCHAR
-               → coords VARCHAR: CAST(... AS DECIMAL(10,6))  |  filtrar !='' !='0' IS NOT NULL
-               → SIN id_centroope: filtrar ciudad via JOIN barrios→ciudades
-quejas         id, id_contacto, cat(categoría), fecha, activa  → categoría en .cat
+               → CAST a DECIMAL(10,6) | filtrar !='' !='0' IS NOT NULL
 
-─── RUTAS ────────────────────────────────────────────────────────────────────
-Logísticas:   rutas(id,nombre,id_centroope) + rutas_barrios(id_ruta,id_barrio)
-Cobro:        rutas_cobro(id,ruta,id_cobrador,activa) + rutas_cobro_zonas(id,id_ruta_cobro,id_barrio)
-              → nombre de ruta cobro = .ruta  (NO .nombre)
+─── LLAMADAS (regla crítica) ─────────────────────────────────────────────────
+llamadas       Id(PK), id_contacto, id_vendedor, fecha_inicio_llamada,
+               id_respuesta(FK→llamadas_respuestas.id), estado(1=válida)
+llamadas_resp  id, respuesta, es_venta(1=venta), contestada(1=aló real)
 
-─── fullclean_telemercadeo (pedidos, llamadas) ───────────────────────────────
-pedidos        id, id_contacto, fecha_hora_pedido, es_venta, id_cobro
-               ⚠️ SIEMPRE fullclean_telemercadeo.pedidos — NUNCA en fullclean_cartera
-pedidos_det    id_pedido, id_item, cantidad  (sin nombre_producto)
-               ⚠️ SIEMPRE fullclean_telemercadeo.pedidos_det — NUNCA en fullclean_cartera
-               → id_item FK → fullclean_bodega.items.id (para filtrar por nombre de producto)
-llamadas       id, id_contacto, fecha_llamada, id_promotor
-llamadas_resp  id_llamada, contestada(1/0), id_respuesta
+⚠️  TODA consulta de llamadas DEBE incluir INNER JOIN con llamadas_respuestas:
+    INNER JOIN fullclean_telemercadeo.llamadas_respuestas lr
+        ON lr.Id = l.id_respuesta
+    Sin este JOIN no existe lectura confiable de contestada ni es_venta.
+    Contactabilidad real: lr.contestada = 1   |   Venta: lr.es_venta = 1
+    NUNCA usar contactos.ultima_llamada como indicador de contacto real.
 
-─── fullclean_cartera (deuda) ────────────────────────────────────────────────
+─── PEDIDOS (5 filtros obligatorios) ────────────────────────────────────────
+pedidos        id, id_contacto, fecha_pedido(DATE), fecha_hora_pedido(DATETIME),
+               estado_pedido, anulada, autorizacion_descuento, autorizar,
+               tipo_documento, num_factura, valor_total
+⚠️  Pedido válido — aplicar SIEMPRE los 5 filtros:
+    AND pe.estado_pedido = 1
+    AND pe.anulada = 0
+    AND pe.autorizar IN (1, 2)
+    AND pe.autorizacion_descuento = 0
+    AND pe.tipo_documento < 2
+pedidos_det    id_pedido, id_item(FK→items.id)
+               ⚠️ SIEMPRE en fullclean_telemercadeo — NUNCA en fullclean_cartera
+
+─── RUTAS DE COBRO ───────────────────────────────────────────────────────────
+Cadena obligatoria para ruta de cobro de un cliente:
+    contactos.id_barrio → barrios.Id → rutas_cobro_zonas.id_barrio → rutas_cobro.id
+rutas_cobro    id, ruta(nombre), id_centroope   → nombre = .ruta (NO .nombre)
+rutas_cobro_zonas  id, id_ruta_cobro, id_barrio
+
+─── CARTERA ──────────────────────────────────────────────────────────────────
 facturas       id, id_contacto, fecha_factura, total, saldo_pendiente, vencida
 cobros         id, id_factura, fecha_cobro, valor_cobrado
 
-─── fullclean_bodega (productos) ─────────────────────────────────────────────
-items          id, nombre, id_presentacion
-               → filtrar por producto: JOIN fullclean_bodega.items i ON i.id=pd.id_item
-                 WHERE i.nombre LIKE '%NombreProducto%'
+─── PRODUCTOS ────────────────────────────────────────────────────────────────
+items          id, item, id_producto, id_presentacion, id_linea
+lineas         id, linea  → ej: FULLIMP, BLUE PET, SAVITRI, ZAGUS
+productos      id, producto
+presentaciones id, presentacion
+Cadena: pedidos_det.id_item → items → productos / presentaciones / lineas
+Filtrar línea: INNER JOIN fullclean_bodega.lineas lin ON lin.id = it.id_linea
+               WHERE lin.linea LIKE \'%BLUE PET%\'
 
-─── GOTCHAS ──────────────────────────────────────────────────────────────────
-1. CAST coords: CAST(e.coordenada_latitud AS DECIMAL(10,6))  WHERE !='',!='0',IS NOT NULL
-2. CIUDAD en vwEventos/rutas_cobro: JOIN barrios b ON b.Id=c.id_barrio
-                                     JOIN ciudades ciu ON ciu.id=b.id_ciudad AND ciu.id_centroope=?
-3. PROMOTOR en vwEventos = e.id_autor  (no id_promotor)
-4. BARRIO nombre = b.barrio  |  RUTA COBRO nombre = rc.ruta  |  CONTACTO PK = c.id
-5. QUEJAS categoría = q.cat  (no JOIN a tabla inconformidad)
-6. pedidos/pedidos_det → fullclean_telemercadeo  |  facturas/cobros → fullclean_cartera
-7. PRODUCTO por nombre → JOIN fullclean_bodega.items i ON i.id=pd.id_item WHERE i.nombre LIKE '%X%'
-8. pedidos_det.id_pedido → pedidos.id  (NO se unen via facturas)
+─── PUNTOS ───────────────────────────────────────────────────────────────────
+contactos_movimientos  id, id_contacto, id_concepto, fecha, valor(+acum/-reden)
+conceptos              id, titulo(\'Compra\',\'Redención\',...)
 
-─── JOINS CRÍTICOS ───────────────────────────────────────────────────────────
-# Ciudad por ruta cobro
-FROM rutas_cobro rc
-JOIN rutas_cobro_zonas rcz ON rcz.id_ruta_cobro=rc.id
-JOIN barrios b ON b.Id=rcz.id_barrio
-JOIN ciudades ciu ON ciu.id=b.id_ciudad AND ciu.id_centroope=?
-JOIN contactos c ON c.id_barrio=b.Id
+─── PERSONAL ─────────────────────────────────────────────────────────────────
+personal       id, apellido(nombre completo), id_cargo
+cargos         Id_cargo(PK), cargo
 
-# Clientes con pedido de producto (por nombre — ej: BluePet)
-SELECT c.id AS id_contacto, c.nombre
-FROM fullclean_contactos.contactos c
-JOIN fullclean_contactos.barrios b ON b.Id=c.id_barrio
-JOIN fullclean_contactos.ciudades ciu ON ciu.id=b.id_ciudad AND ciu.id_centroope=4
-JOIN fullclean_telemercadeo.pedidos p ON p.id_contacto=c.id
-JOIN fullclean_telemercadeo.pedidos_det pd ON pd.id_pedido=p.id
-JOIN fullclean_bodega.items i ON i.id=pd.id_item
-WHERE p.es_venta=1 AND i.nombre LIKE '%BluePet%'
-  AND p.fecha_hora_pedido BETWEEN '2026-01-01' AND '2026-03-31'
-GROUP BY c.id, c.nombre
+─── MAPAS DE CLIENTES (regla crítica) ────────────────────────────────────────
+El SQL para mapas DEBE devolver id_contacto + atributos de negocio.
+NUNCA devolver lat/lon en el SQL: las coordenadas se anexan desde el cache.
+Ejemplo de SELECT correcto para mapa:
+    SELECT c.id AS id_contacto, c.nombre, b.barrio, rc.ruta, SUM(pe.valor_total) AS valor_pedidos
 
-# Deuda vencida por ruta
-SELECT rc.ruta, SUM(f.saldo_pendiente) deuda, COUNT(DISTINCT f.id_contacto) clientes
-FROM fullclean_cartera.facturas f
-JOIN fullclean_contactos.contactos c ON c.id=f.id_contacto
-JOIN fullclean_contactos.barrios b ON b.Id=c.id_barrio
-JOIN fullclean_contactos.rutas_cobro_zonas rcz ON rcz.id_barrio=b.Id
-JOIN fullclean_contactos.rutas_cobro rc ON rc.id=rcz.id_ruta_cobro
-WHERE f.vencida=1 GROUP BY rc.id,rc.ruta
+─── CLIENTE ACTIVO ───────────────────────────────────────────────────────────
+(c.estado_cxc IN (0, 1) OR c.cant_obsequios > 0)
+Canal directo (puerta a puerta): c.id_canal = 2
+
+─── GOTCHAS SQL ──────────────────────────────────────────────────────────────
+1. barrios PK = b.Id (I mayúscula)   |   personal PK = Id_cargo (mixto)
+2. llamadas PK = l.Id (I mayúscula)  |   llamadas join = lr.Id = l.id_respuesta
+3. PROMOTOR en vwEventos = e.id_autor (no id_promotor)
+4. BARRIO nombre = b.barrio          |   RUTA COBRO nombre = rc.ruta
+5. pedidos/pedidos_det → fullclean_telemercadeo (NUNCA en fullclean_cartera)
+6. COORDS vwEventos: CAST a DECIMAL | filtrar !=\'\' !='0\' IS NOT NULL
+7. NO-FIEL: id_categoria NOT IN (42, 55, 58, 59, 60)
+8. Febrero 2026 tiene 28 días → usar \'2026-02-28\' como fecha fin
+
+─── JOINS CRÍTICOS (referencia rápida) ──────────────────────────────────────
+# CO de un cliente
+JOIN fullclean_contactos.ciudades ci    ON ci.id = c.id_ciudad
+JOIN fullclean_general.centroope ce     ON ce.id = ci.id_centroope
+WHERE ci.id_centroope = [N]
+
+# Ruta de cobro
+JOIN fullclean_contactos.barrios b           ON b.Id = c.id_barrio
+JOIN fullclean_contactos.rutas_cobro_zonas rcz ON rcz.id_barrio = b.Id
+JOIN fullclean_contactos.rutas_cobro rc      ON rc.id = rcz.id_ruta_cobro
+
+# Llamadas contestadas (INNER JOIN obligatorio)
+INNER JOIN fullclean_telemercadeo.llamadas l  ON l.id_contacto = c.id
+INNER JOIN fullclean_telemercadeo.llamadas_respuestas lr
+    ON lr.Id = l.id_respuesta AND lr.contestada = 1
+WHERE l.estado = 1
+
+# Producto por línea
+JOIN fullclean_telemercadeo.pedidos_det pd ON pd.id_pedido = pe.id
+JOIN fullclean_bodega.items it             ON it.id = pd.id_item
+JOIN fullclean_bodega.lineas lin           ON lin.id = it.id_linea
+WHERE lin.linea LIKE \'%BLUE PET%\'
 
 ─── FOLIUM (ejecutar_codigo_mapa) ────────────────────────────────────────────
-TILES='https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}'
+TILES='https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{{z}}/{{y}}/{{x}}'
 CircleMarker radius=5-6 para puntos | HeatMap para densidad | MarkerCluster para >500 pts
 Variable destino: mapa  (NO llamar mapa.save())
 === FIN ESQUEMA ===

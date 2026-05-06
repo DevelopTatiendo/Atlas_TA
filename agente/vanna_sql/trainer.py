@@ -357,7 +357,7 @@ DOC_BLOCKS = [
         INNER JOIN fullclean_contactos.ciudades ci ON ci.id = c.id_ciudad
         INNER JOIN fullclean_general.centroope ce  ON ce.id = ci.id_centroope
     Filtrar por: ci.id_centroope = [N] o ce.descripcion = '[nombre]'
-    COs conocidos: Medellín = 2, Cali = 3, Bogotá = 4 (confirmar otros con SELECT).
+    IDs correctos: Cali=2, Medellín=3, Bogotá=4, Pereira=5, Manizales=6, Bucaramanga=7, Barranquilla=8.
     Si el usuario NO especifica CO, el SQL debe incluir el comentario:
     -- ADVERTENCIA: CO no especificado. Agregar filtro ci.id_centroope = ?
     """,
@@ -428,16 +428,34 @@ DOC_BLOCKS = [
 
     # ── 7. CONTACTABILIDAD REAL ────────────────────────────────────────────────
     """
-    REGLA — Contactabilidad y llamadas:
+    REGLA CRÍTICA — Contactabilidad y llamadas:
     Para aló real (contacto real):    lr.contestada = 1
     Para venta por llamada:           lr.es_venta = 1
     NUNCA usar contactos.ultima_llamada como indicador de contacto real.
-    Siempre unir llamadas con llamadas_respuestas:
-        LEFT JOIN fullclean_telemercadeo.llamadas_respuestas lr
-            ON lr.id = l.id_respuesta
+    INNER JOIN OBLIGATORIO con llamadas_respuestas — nunca LEFT JOIN para contactabilidad:
+        INNER JOIN fullclean_telemercadeo.llamadas_respuestas lr
+            ON lr.Id = l.id_respuesta
     Filtros adicionales para llamadas limpias:
         AND l.estado = 1
         AND l.id_contacto <> 0
+        AND l.id_vendedor NOT IN (0, 1)
+    """,
+
+    # ── 7b. REGLA CRÍTICA — LLAMADAS SIEMPRE CON RESPUESTAS ───────────────────
+    """
+    REGLA CRÍTICA — Llamadas siempre con respuesta:
+    Toda consulta que use fullclean_telemercadeo.llamadas DEBE unir
+    fullclean_telemercadeo.llamadas_respuestas por l.id_respuesta.
+    Sin esa unión NO se puede interpretar contestada, es_venta, respuesta ni contactabilidad real.
+
+    Patrón OBLIGATORIO:
+        FROM fullclean_telemercadeo.llamadas l
+        INNER JOIN fullclean_telemercadeo.llamadas_respuestas lr
+            ON lr.Id = l.id_respuesta
+
+    Para llamadas contestadas: WHERE l.estado = 1 AND lr.contestada = 1
+    NUNCA:  SELECT ... FROM llamadas l WHERE ...  (sin JOIN llamadas_respuestas)
+    NUNCA:  usar contactos.ultima_llamada como fuente de contacto real
     """,
 
     # ── 8. CONSULTA BASE DE CLIENTES (plantilla) ───────────────────────────────
@@ -1238,6 +1256,41 @@ WHERE ci.id_centroope = 3
   AND c.id_canal = 2
 GROUP BY c.id, c.nombre, cat.categoria, b.barrio, ce.descripcion
 ORDER BY c.nombre;
+        """,
+    },
+
+    # 21. Clientes de una ruta con pedidos > 200k — mapa por valor
+    {
+        "question": "Quiero ver los clientes de Cali de la ruta 2 que tengan pedidos válidos con valor total mayor a 200 mil pesos en abril 2026",
+        "sql": """
+SELECT
+    c.id                            AS id_contacto,
+    c.nombre,
+    b.barrio,
+    rc.ruta                         AS ruta_cobro,
+    SUM(pe.valor_total)             AS valor_pedidos
+FROM fullclean_contactos.contactos c
+INNER JOIN fullclean_contactos.ciudades ci
+    ON ci.id = c.id_ciudad
+LEFT JOIN fullclean_contactos.barrios b
+    ON b.Id = c.id_barrio
+LEFT JOIN fullclean_contactos.rutas_cobro_zonas rcz
+    ON rcz.id_barrio = b.Id
+LEFT JOIN fullclean_contactos.rutas_cobro rc
+    ON rc.id = rcz.id_ruta_cobro
+INNER JOIN fullclean_telemercadeo.pedidos pe
+    ON pe.id_contacto = c.id
+WHERE ci.id_centroope = 2
+  AND rc.id = 2
+  AND pe.fecha_pedido BETWEEN '2026-04-01' AND '2026-04-30'
+  AND pe.estado_pedido = 1
+  AND pe.anulada = 0
+  AND pe.autorizar IN (1, 2)
+  AND pe.autorizacion_descuento = 0
+  AND pe.tipo_documento < 2
+GROUP BY c.id, c.nombre, b.barrio, rc.ruta
+HAVING valor_pedidos > 200000
+ORDER BY valor_pedidos DESC;
         """,
     },
 
