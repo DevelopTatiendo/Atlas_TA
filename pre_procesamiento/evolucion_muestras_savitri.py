@@ -50,6 +50,18 @@ COLORES_RESULTADO = {
     "SIN MUESTRA IDENTIFICADA": "#9CA3AF",
 }
 
+LABELS_RESULTADO = {
+    "VOLVIO A COMPRAR MISMA MARCA": "Volvio A Comprar Misma Marca",
+    "VOLVIO A COMPRAR PERO CAMBIO DE MARCA": "Volvio A Comprar Pero Cambio De Marca",
+    "NO VOLVIO A COMPRAR": "No Volvio A Comprar",
+    "SIN MUESTRA IDENTIFICADA": "Sin Muestra Identificada",
+}
+
+CARGOS_EVENTO = {
+    "PROMOTOR": {"ids": [39], "label": "Promotor"},
+    "CONSULTOR": {"ids": [181], "label": "Consultor"},
+}
+
 
 def _normalizar_ciudad(ciudad: str) -> str:
     return "".join(
@@ -87,10 +99,15 @@ def _sql_evolucion_savitri(
     dias_seguimiento: int,
     marca_muestra: str,
     solo_ultima_muestra: bool,
+    cargo_evento: str,
 ) -> tuple[str, dict[str, Any]]:
     dias = max(1, min(int(dias_seguimiento), 730))
     marca = re.sub(r"[^A-Za-z0-9 _/-]", "", marca_muestra or "SAVITRI").strip().upper()
     marca_like = f"%{marca}%"
+    cargo_key = str(cargo_evento or "PROMOTOR").upper().strip()
+    cargo_cfg = CARGOS_EVENTO.get(cargo_key, CARGOS_EVENTO["PROMOTOR"])
+    cargo_ids = [int(x) for x in cargo_cfg["ids"]]
+    cargo_placeholders = ", ".join(f":cargo_{i}" for i in range(len(cargo_ids)))
 
     filtro_marca = ""
     if marca and marca not in {"TODAS", "TODAS LAS MARCAS"}:
@@ -107,6 +124,9 @@ WITH muestras_base AS (
         ev.id_contacto,
         ev.fecha_evento,
         ev.id_autor,
+        per.apellido AS autor_nombre,
+        per.id_cargo AS id_cargo_autor,
+        ca.cargo AS cargo_autor,
         ev.coordenada_latitud,
         ev.coordenada_longitud,
 
@@ -131,6 +151,11 @@ WITH muestras_base AS (
     INNER JOIN fullclean_contactos.ciudades ci
         ON ci.id = c.id_ciudad
        AND ci.id_centroope = :id_centroope
+    INNER JOIN fullclean_personal.personal per
+        ON per.id = ev.id_autor
+       AND per.id_cargo IN ({cargo_placeholders})
+    LEFT JOIN fullclean_personal.cargos ca
+        ON ca.Id_cargo = per.id_cargo
     LEFT JOIN fullclean_telemercadeo.obsequios ob
         ON ob.id_contacto = ev.id_contacto
        AND ob.id_promotor = ev.id_autor
@@ -193,6 +218,10 @@ resumen_compras AS (
 SELECT
     m.idEvento AS id_muestra,
     m.id_contacto,
+    m.id_autor,
+    m.autor_nombre,
+    m.id_cargo_autor,
+    m.cargo_autor,
     c.nombre AS nombre_cliente,
     c.tel1,
     c.celular,
@@ -248,6 +277,8 @@ ORDER BY m.fecha_evento DESC, m.id_contacto
         "fecha_fin": f"{fecha_fin} 00:00:00",
         "marca_like": marca_like,
     }
+    for i, cargo_id in enumerate(cargo_ids):
+        params[f"cargo_{i}"] = cargo_id
     return sql, params
 
 
@@ -258,6 +289,7 @@ def consultar_evolucion_muestras_savitri(
     dias_seguimiento: int = 90,
     marca_muestra: str = "SAVITRI",
     solo_ultima_muestra: bool = True,
+    cargo_evento: str = "PROMOTOR",
 ) -> pd.DataFrame:
     ciudad_norm = _normalizar_ciudad(ciudad)
     if ciudad_norm not in CENTROOPES:
@@ -270,6 +302,7 @@ def consultar_evolucion_muestras_savitri(
         dias_seguimiento=dias_seguimiento,
         marca_muestra=marca_muestra,
         solo_ultima_muestra=solo_ultima_muestra,
+        cargo_evento=cargo_evento,
     )
     df = sql_read(sql, params=params, schema="fullclean_contactos")
     if df is None or df.empty:
@@ -315,6 +348,8 @@ def _safe(value: Any) -> str:
 
 def _popup_cliente(row: pd.Series) -> str:
     campos = [
+        ("Generado por", row.get("autor_nombre")),
+        ("Cargo", row.get("cargo_autor")),
         ("Cliente", row.get("nombre_cliente")),
         ("Tel", row.get("tel1")),
         ("Cel", row.get("celular")),
@@ -403,7 +438,7 @@ def _resumen(df: pd.DataFrame) -> dict[str, Any]:
     }
 
 
-def _legend_html(resumen: dict[str, Any], fecha_inicio: str, fecha_fin: str, dias: int, marca: str) -> str:
+def _legend_html(resumen: dict[str, Any], fecha_inicio: str, fecha_fin: str, dias: int, marca: str, cargo_label: str) -> str:
     rows = ""
     labels = [
         "VOLVIO A COMPRAR MISMA MARCA",
@@ -414,10 +449,13 @@ def _legend_html(resumen: dict[str, Any], fecha_inicio: str, fecha_fin: str, dia
     for label in labels:
         color = COLORES_RESULTADO.get(label, "#9CA3AF")
         count = int(resumen.get("por_resultado", {}).get(label, 0))
+        display = LABELS_RESULTADO.get(label, label.title())
         rows += (
-            f"<tr><td style='padding:3px 8px 3px 0'>"
-            f"<span style='color:{color};font-size:17px'>&#9679;</span> {label.title()}</td>"
-            f"<td style='text-align:right;font-weight:700'>{count:,}</td></tr>"
+            f"<button type='button' class='ta-layer-toggle is-active' data-layer='{html.escape(display, quote=True)}'>"
+            f"<span class='ta-dot' style='background:{color}'></span>"
+            f"<span class='ta-label'>{html.escape(display)}</span>"
+            f"<span class='ta-count'>{count:,}</span>"
+            f"</button>"
         )
     return f"""
     <div style="position:fixed;top:18px;left:18px;z-index:9999;
@@ -425,14 +463,71 @@ def _legend_html(resumen: dict[str, Any], fecha_inicio: str, fecha_fin: str, dia
                 box-shadow:0 2px 10px rgba(0,0,0,.18);padding:12px 14px;
                 font-family:Arial,sans-serif;font-size:12px;min-width:280px">
       <div style="font-weight:800;font-size:14px;margin-bottom:4px">Evolucion post-muestra {html.escape(marca)}</div>
-      <div style="color:#555;margin-bottom:8px">{fecha_inicio} a {fecha_fin} - ventana {dias} dias</div>
-      <table style="border-collapse:collapse;width:100%;margin-bottom:8px">{rows}</table>
+      <div style="color:#555;margin-bottom:8px">{fecha_inicio} a {fecha_fin} - ventana {dias} dias - {html.escape(cargo_label)}</div>
+      <div class="ta-layer-toggles">{rows}</div>
       <div style="border-top:1px solid #e5e7eb;padding-top:7px;line-height:1.6">
         Clientes: <b>{resumen.get('total_clientes', 0):,}</b> - Eventos: <b>{resumen.get('total_eventos', 0):,}</b><br>
         Recompra total: <b>{resumen.get('pct_recompra', 0)}%</b><br>
         Conversion misma marca: <b>{resumen.get('pct_conversion_misma_marca', 0)}%</b>
       </div>
+      <style>
+        .ta-layer-toggles {{
+          display:flex; flex-direction:column; gap:6px; margin:10px 0 10px 0;
+        }}
+        .ta-layer-toggle {{
+          display:grid; grid-template-columns:16px 1fr auto; align-items:center; gap:4px;
+          width:100%; border:1px solid transparent; background:transparent;
+          border-radius:6px; padding:5px 6px; text-align:left; color:#333;
+          font:inherit; cursor:pointer;
+        }}
+        .ta-layer-toggle:hover {{ background:#f3f4f6; border-color:#e5e7eb; }}
+        .ta-layer-toggle:not(.is-active) {{ opacity:.42; text-decoration:line-through; }}
+        .ta-dot {{ width:10px; height:10px; border-radius:50%; display:inline-block; }}
+        .ta-label {{ white-space:nowrap; padding-right:8px; }}
+        .ta-count {{ font-weight:700; text-align:right; }}
+      </style>
     </div>
+    """
+
+
+def _layer_toggle_js(mapa) -> str:
+    map_name = mapa.get_name()
+    return f"""
+    <script>
+    (function(){{
+      function initAtlasToggles(){{
+        var map = window.{map_name};
+        if (!map) {{ setTimeout(initAtlasToggles, 250); return; }}
+
+        function findLayerByName(name){{
+          var found = null;
+          map.eachLayer(function(layer){{
+            if (found) return;
+            if (layer && layer.options && layer.options.name === name) found = layer;
+          }});
+          return found;
+        }}
+
+        document.querySelectorAll('.ta-layer-toggle').forEach(function(btn){{
+          if (btn.__taBound) return;
+          btn.__taBound = true;
+          btn.addEventListener('click', function(){{
+            var layerName = btn.getAttribute('data-layer');
+            var layer = findLayerByName(layerName);
+            if (!layer) return;
+            if (map.hasLayer(layer)) {{
+              map.removeLayer(layer);
+              btn.classList.remove('is-active');
+            }} else {{
+              map.addLayer(layer);
+              btn.classList.add('is-active');
+            }}
+          }});
+        }});
+      }}
+      [100, 400, 1000].forEach(function(ms){{ setTimeout(initAtlasToggles, ms); }});
+    }})();
+    </script>
     """
 
 
@@ -443,6 +538,7 @@ def generar_mapa_evolucion_muestras_savitri(
     dias_seguimiento: int = 90,
     marca_muestra: str = "SAVITRI",
     solo_ultima_muestra: bool = True,
+    cargo_evento: str = "PROMOTOR",
 ) -> tuple[str | None, int, pd.DataFrame | None, dict[str, Any]]:
     ciudad_norm = _normalizar_ciudad(ciudad)
     if ciudad_norm not in COORDENADAS_CIUDADES:
@@ -455,7 +551,10 @@ def generar_mapa_evolucion_muestras_savitri(
         dias_seguimiento=dias_seguimiento,
         marca_muestra=marca_muestra,
         solo_ultima_muestra=solo_ultima_muestra,
+        cargo_evento=cargo_evento,
     )
+    cargo_key = str(cargo_evento or "PROMOTOR").upper().strip()
+    cargo_label = CARGOS_EVENTO.get(cargo_key, CARGOS_EVENTO["PROMOTOR"])["label"]
 
     location = COORDENADAS_CIUDADES[ciudad_norm][0]
     mapa = folium.Map(
@@ -468,7 +567,7 @@ def generar_mapa_evolucion_muestras_savitri(
 
     if df.empty:
         resumen = _resumen(pd.DataFrame(columns=["id_contacto", "resultado_marca"]))
-        mapa.get_root().html.add_child(folium.Element(_legend_html(resumen, fecha_inicio, fecha_fin, int(dias_seguimiento), marca_muestra)))
+        mapa.get_root().html.add_child(folium.Element(_legend_html(resumen, fecha_inicio, fecha_fin, int(dias_seguimiento), marca_muestra, cargo_label)))
         filename = guardar_mapa_controlado(mapa, tipo_mapa="mapa_evolucion_savitri", permitir_multiples=False)
         return filename, 0, df, resumen
 
@@ -477,7 +576,10 @@ def generar_mapa_evolucion_muestras_savitri(
 
     grupos: dict[str, folium.FeatureGroup] = {}
     for resultado in COLORES_RESULTADO:
-        grupos[resultado] = folium.FeatureGroup(name=resultado.title(), show=True).add_to(mapa)
+        grupos[resultado] = folium.FeatureGroup(
+            name=LABELS_RESULTADO.get(resultado, resultado.title()),
+            show=True,
+        ).add_to(mapa)
 
     for _, row in df_map.iterrows():
         resultado = str(row.get("resultado_marca") or "SIN MUESTRA IDENTIFICADA")
@@ -495,7 +597,8 @@ def generar_mapa_evolucion_muestras_savitri(
             popup=folium.Popup(_popup_cliente(row), max_width=420),
         ).add_to(group)
 
-    mapa.get_root().html.add_child(folium.Element(_legend_html(resumen, fecha_inicio, fecha_fin, int(dias_seguimiento), marca_muestra)))
+    mapa.get_root().html.add_child(folium.Element(_legend_html(resumen, fecha_inicio, fecha_fin, int(dias_seguimiento), marca_muestra, cargo_label)))
+    mapa.get_root().html.add_child(folium.Element(_layer_toggle_js(mapa)))
     folium.LayerControl(collapsed=True, position="topright").add_to(mapa)
 
     filename = guardar_mapa_controlado(mapa, tipo_mapa="mapa_evolucion_savitri", permitir_multiples=False)

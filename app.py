@@ -326,7 +326,7 @@ with tab_evolucion:
         with c2:
             fecha_fin_ev = st.date_input("Fecha de Fin", key="evolucion_fecha_fin")
 
-        c3, c4, c5 = st.columns([1, 1, 1])
+        c3, c4, c5, c6 = st.columns([1, 1, 1, 1])
         with c3:
             dias_seguimiento = st.selectbox(
                 "Ventana post-muestra",
@@ -341,6 +341,14 @@ with tab_evolucion:
                 index=0,
             )
         with c5:
+            cargo_evento = st.selectbox(
+                "Cargo que genero el evento",
+                options=["PROMOTOR", "CONSULTOR"],
+                index=0,
+                format_func=lambda x: "Promotor" if x == "PROMOTOR" else "Consultor",
+                help="Filtra por el cargo del autor de vwEventos: Promotor id_cargo=39, Consultor id_cargo=181.",
+            )
+        with c6:
             solo_ultima_muestra = st.checkbox(
                 "Ultima muestra por cliente",
                 value=True,
@@ -420,6 +428,7 @@ with tab_evolucion:
                 dias_seguimiento=int(dias_seguimiento),
                 marca_muestra=marca_muestra,
                 solo_ultima_muestra=bool(solo_ultima_muestra),
+                cargo_evento=cargo_evento,
             )
             if resultado:
                 fname, n_puntos, df_exp, resumen = resultado
@@ -435,6 +444,7 @@ with tab_evolucion:
                         "fecha_fin": fecha_fin_ev,
                         "marca": marca_muestra,
                         "dias": dias_seguimiento,
+                        "cargo": cargo_evento,
                     }
                     st.session_state["evolucion_resumen"] = resumen
                 else:
