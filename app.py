@@ -19,6 +19,7 @@ import validators
 from datetime import datetime
 
 from  mapa_muestras import generar_mapa_muestras_visual
+from pre_procesamiento.evolucion_muestras_savitri import generar_mapa_evolucion_muestras_savitri
 
 # ── Excepciones internas de Streamlit que NO deben capturarse ─────────────────
 # Streamlit usa StopException para detener el script cuando el usuario presiona
@@ -143,13 +144,19 @@ if st.session_state.get("last_ciudad") != ciudad:
     st.session_state["muestras_last_filename"] = None
     st.session_state["muestras_export_df"]     = None
     st.session_state["muestras_export_meta"]   = None
+    st.session_state["evolucion_map_url"]      = None
+    st.session_state["evolucion_last_filename"] = None
+    st.session_state["evolucion_export_df"]     = None
+    st.session_state["evolucion_export_meta"]   = None
+    st.session_state["evolucion_resumen"]       = None
     st.session_state["map_auto_opened"]        = False
+    st.session_state["evolucion_map_auto_opened"] = False
     st.session_state["last_ciudad"]            = ciudad
 
 st.divider()
 
 # ── Tabs principales ──────────────────────────────────────────────────────────
-tab_mapas, tab_agente = st.tabs(["🗺️ Mapa de Muestras", "🤖 Atlas Agent"])
+tab_mapas, tab_evolucion, tab_agente = st.tabs(["🗺️ Mapa de Muestras", "Evolucion Savitri", "🤖 Atlas Agent"])
 
 
 def _fmt_date(x) -> str:
@@ -311,6 +318,176 @@ with tab_mapas:
 # ════════════════════════════════════════════════════════════════════════
 # TAB 2 — Atlas Agent chat
 # ════════════════════════════════════════════════════════════════════════
+with tab_evolucion:
+    with st.form(key="evolucion_savitri_form"):
+        c1, c2 = st.columns(2)
+        with c1:
+            fecha_inicio_ev = st.date_input("Fecha de Inicio", key="evolucion_fecha_inicio")
+        with c2:
+            fecha_fin_ev = st.date_input("Fecha de Fin", key="evolucion_fecha_fin")
+
+        c3, c4, c5 = st.columns([1, 1, 1])
+        with c3:
+            dias_seguimiento = st.selectbox(
+                "Ventana post-muestra",
+                options=[30, 60, 90, 120, 180, 365],
+                index=2,
+                format_func=lambda x: f"{x} dias",
+            )
+        with c4:
+            marca_muestra = st.selectbox(
+                "Marca de muestra",
+                options=["SAVITRI", "FULLIMP", "GIORGIO", "TODAS"],
+                index=0,
+            )
+        with c5:
+            solo_ultima_muestra = st.checkbox(
+                "Ultima muestra por cliente",
+                value=True,
+                help="Evita contar varias entregas del mismo cliente en el periodo.",
+            )
+
+        _, col_btn_ev, _ = st.columns([1, 1, 1])
+        with col_btn_ev:
+            submit_evolucion = st.form_submit_button(
+                "Generar Analisis", use_container_width=True, type="primary"
+            )
+
+    ev_link_placeholder = st.empty()
+
+    ev_filename = st.session_state.get("evolucion_last_filename")
+    ev_html_path = os.path.join("static", "maps", ev_filename) if ev_filename else None
+    if ev_filename and ev_html_path and os.path.exists(ev_html_path):
+        ciudad_slug = re.sub(r'[^A-Za-z0-9]', '', ciudad.upper()
+                             .replace('Ã','A').replace('Ã‰','E')
+                             .replace('Ã','I').replace('Ã“','O').replace('Ãš','U'))
+        filename_dl = f"Evolucion_Muestras_{marca_muestra}_{ciudad_slug}_{datetime.now().strftime('%Y%m%d')}.html"
+        with open(ev_html_path, "rb") as f:
+            ev_html_bytes = f.read()
+        st.download_button(
+            label="Descargar HTML del analisis",
+            data=ev_html_bytes,
+            file_name=filename_dl,
+            mime="text/html",
+            type="secondary",
+            use_container_width=True,
+        )
+    else:
+        st.button(
+            "Descargar HTML del analisis",
+            disabled=True,
+            type="secondary",
+            use_container_width=True,
+            help="Genera un analisis primero.",
+        )
+
+    ev_df_export = st.session_state.get("evolucion_export_df")
+    ev_export_meta = st.session_state.get("evolucion_export_meta")
+    if ev_df_export is not None and not ev_df_export.empty and ev_export_meta:
+        ciudad_slug = re.sub(r'[^A-Za-z0-9]', '', ev_export_meta.get("ciudad", ciudad).upper()
+                             .replace('Ã','A').replace('Ã‰','E')
+                             .replace('Ã','I').replace('Ã“','O').replace('Ãš','U'))
+        fname_csv = (
+            f"Evolucion_Muestras_{ev_export_meta.get('marca', 'SAVITRI')}_{ciudad_slug}"
+            f"_{_fmt_date(ev_export_meta.get('fecha_inicio'))}"
+            f"_{_fmt_date(ev_export_meta.get('fecha_fin'))}.csv"
+        )
+        csv_data = ev_df_export.to_csv(index=False, sep=';').encode('utf-8-sig')
+        st.download_button(
+            label="Descargar CSV del analisis",
+            data=csv_data,
+            file_name=fname_csv,
+            mime="text/csv",
+            type="secondary",
+            use_container_width=True,
+        )
+    else:
+        st.button(
+            "Descargar CSV del analisis",
+            disabled=True,
+            type="secondary",
+            use_container_width=True,
+            help="Genera un analisis primero.",
+        )
+
+    if submit_evolucion:
+        try:
+            resultado = manejar_error(
+                generar_mapa_evolucion_muestras_savitri,
+                ciudad=ciudad,
+                fecha_inicio=str(fecha_inicio_ev),
+                fecha_fin=str(fecha_fin_ev),
+                dias_seguimiento=int(dias_seguimiento),
+                marca_muestra=marca_muestra,
+                solo_ultima_muestra=bool(solo_ultima_muestra),
+            )
+            if resultado:
+                fname, n_puntos, df_exp, resumen = resultado
+                if fname and os.path.exists(os.path.join("static", "maps", fname)):
+                    ts = int(time.time())
+                    st.session_state["evolucion_map_url"] = f"{FLASK_SERVER}/static/maps/{fname}?t={ts}"
+                    st.session_state["evolucion_last_filename"] = fname
+                    st.session_state["evolucion_map_auto_opened"] = False
+                    st.session_state["evolucion_export_df"] = df_exp
+                    st.session_state["evolucion_export_meta"] = {
+                        "ciudad": ciudad,
+                        "fecha_inicio": fecha_inicio_ev,
+                        "fecha_fin": fecha_fin_ev,
+                        "marca": marca_muestra,
+                        "dias": dias_seguimiento,
+                    }
+                    st.session_state["evolucion_resumen"] = resumen
+                else:
+                    st.session_state["evolucion_map_url"] = None
+                    st.session_state["evolucion_last_filename"] = None
+                    st.session_state["evolucion_export_df"] = None
+                    st.session_state["evolucion_export_meta"] = None
+                    st.session_state["evolucion_resumen"] = None
+            else:
+                st.session_state["evolucion_map_url"] = None
+                st.session_state["evolucion_last_filename"] = None
+                st.session_state["evolucion_export_df"] = None
+                st.session_state["evolucion_export_meta"] = None
+                st.session_state["evolucion_resumen"] = None
+        except _ST_STOP_EXC:
+            raise
+        except Exception:
+            logging.exception("Error inesperado en evolucion Savitri")
+            st.error("Se produjo un error inesperado. Revisa los logs.")
+            st.session_state["evolucion_map_url"] = None
+            st.session_state["evolucion_last_filename"] = None
+
+    resumen_ev = st.session_state.get("evolucion_resumen")
+    if resumen_ev:
+        m1, m2, m3, m4 = st.columns(4)
+        m1.metric("Clientes", f"{int(resumen_ev.get('total_clientes', 0)):,}")
+        m2.metric("Eventos", f"{int(resumen_ev.get('total_eventos', 0)):,}")
+        m3.metric("Recompra total", f"{resumen_ev.get('pct_recompra', 0)}%")
+        m4.metric("Misma marca", f"{resumen_ev.get('pct_conversion_misma_marca', 0)}%")
+
+    ev_map_url = st.session_state.get("evolucion_map_url")
+    if ev_map_url:
+        if not st.session_state.get("evolucion_map_auto_opened", False):
+            st.session_state["evolucion_map_auto_opened"] = True
+            st.markdown(
+                f"<script>try{{window.open('{ev_map_url}','_blank');}}catch(e){{}}</script>",
+                unsafe_allow_html=True,
+            )
+        ev_link_placeholder.markdown(
+            f'<div class="btn-row"><div>'
+            f'<a href="{ev_map_url}" target="_blank" rel="noopener" class="pill">'
+            f'Ver Mapa de Evolucion</a></div></div>',
+            unsafe_allow_html=True,
+        )
+    else:
+        ev_link_placeholder.markdown(
+            '<div class="muted" style="text-align:center;">'
+            'No se ha generado ningun analisis. Ajusta los filtros e intentalo de nuevo.'
+            '</div>',
+            unsafe_allow_html=True,
+        )
+
+
 with tab_agente:
     from agente.atlas_chat import render_chat_tab
     render_chat_tab(ciudad)
