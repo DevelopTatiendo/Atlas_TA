@@ -19,6 +19,7 @@ Uso típico desde generar_mapa_clientes:
 
 from __future__ import annotations
 
+import json
 import re
 from datetime import datetime
 from pathlib import Path
@@ -50,6 +51,17 @@ _CENTROS: dict[int, tuple[float, float]] = {
     8: (10.9685, -74.7813),  # Barranquilla
 }
 
+# Rutas GeoJSON de cuadrantes/rutas por id_centroope (mismo que usa mapa_muestras.py)
+_GEOJSON_CUADRANTES: dict[int, Path] = {
+    2: _ROOT / "geojson/rutas/cali/cuadrantes_rutas_cali.geojson",
+    3: _ROOT / "geojson/rutas/medellin/cuadrantes_rutas_medellin.geojson",
+    4: _ROOT / "geojson/rutas/bogota/cuadrantes_rutas_bogota.geojson",
+    5: _ROOT / "geojson/rutas/pereira/cuadrantes_rutas_pereira.geojson",
+    6: _ROOT / "geojson/rutas/manizales/cuadrantes_rutas_manizales.geojson",
+    7: _ROOT / "geojson/rutas/bucaramanga/cuadrantes_rutas_bucaramanga.geojson",
+    8: _ROOT / "geojson/rutas/barranquilla/cuadrantes_rutas_barranquilla.geojson",
+}
+
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Helpers
@@ -79,20 +91,158 @@ def _base_map(df: pd.DataFrame, ciudad_id: int | None, zoom: int = 13):
 
 
 def _popup_text(row: pd.Series, excluir: list[str] | None = None) -> str:
-    """Genera texto de popup mostrando todas las columnas relevantes del row."""
-    excluir = set(excluir or ["lat", "lon", "id_contacto"])
-    partes  = []
-    nombre  = row.get("nombre", f"ID {row.get('id_contacto','?')}")
-    partes.append(f"<b>{nombre}</b>")
+    """Genera texto de popup.
+
+    id_contacto siempre aparece primero en negrita.
+    Después el nombre (si existe) y luego el resto de columnas.
+    """
+    excluir = set(excluir or ["lat", "lon"])
+
+    partes: list[str] = []
+
+    # 1. id_contacto siempre primero
+    id_c = row.get("id_contacto", "?")
+    partes.append(f"<b style='font-size:13px'>ID {id_c}</b>")
+
+    # 2. Nombre del cliente si existe
+    nombre = row.get("nombre")
+    if nombre is not None and not (isinstance(nombre, float) and pd.isna(nombre)):
+        partes.append(f"<b>{nombre}</b>")
+
+    # 3. Resto de columnas (excluir lat/lon/nombre/id_contacto)
+    skip = excluir | {"nombre", "id_contacto"}
     for col, val in row.items():
-        if col in excluir or col == "nombre" or pd.isna(val):
+        if col in skip:
             continue
-        # Formatear valores monetarios grandes
+        try:
+            if pd.isna(val):
+                continue
+        except (TypeError, ValueError):
+            pass
+        label = col.replace("_", " ").title()
         if isinstance(val, (int, float)) and abs(val) > 1000:
-            partes.append(f"{col}: ${val:,.0f}")
+            partes.append(f"{label}: ${val:,.0f}")
         else:
-            partes.append(f"{col}: {val}")
+            partes.append(f"{label}: {val}")
+
     return "<br>".join(partes)
+
+
+def _tabla_resumen_html(df: pd.DataFrame, n_filtro: int | None = None) -> str:
+    """Genera un widget HTML de resumen para inyectar en el mapa (esquina inferior derecha).
+
+    Muestra: total filtro, en mapa, % cobertura GPS y promedios de columnas numéricas.
+    """
+    n_en_mapa = int(df["lat"].notna().sum()) if "lat" in df.columns else len(df)
+    n_total   = n_filtro if n_filtro is not None else n_en_mapa
+    pct       = round(100 * n_en_mapa / n_total, 1) if n_total else 0
+
+    # Columnas numéricas relevantes (hasta 4)
+    cols_num = [
+        c for c in df.columns
+        if c not in ("id_contacto", "lat", "lon")
+        and pd.api.types.is_numeric_dtype(df[c])
+    ][:4]
+
+    def _fmt_val(v: float) -> str:
+        if abs(v) >= 1_000_000:
+            return f"${v / 1_000_000:.1f}M"
+        if abs(v) >= 1_000:
+            return f"${v / 1_000:.0f}K"
+        return f"{v:,.1f}"
+
+    filas_stats = ""
+    for col in cols_num:
+        serie = pd.to_numeric(df[col], errors="coerce").dropna()
+        if serie.empty:
+            continue
+        label = col.replace("_", " ").title()
+        media = serie.mean()
+        filas_stats += (
+            f"<tr>"
+            f"<td style='padding:2px 6px 2px 0;color:#555'>{label}</td>"
+            f"<td style='text-align:right;font-weight:600'>{_fmt_val(media)}</td>"
+            f"</tr>"
+        )
+
+    return f"""
+    <div style="position:fixed;bottom:30px;right:14px;
+                background:rgba(255,255,255,0.94);border-radius:10px;
+                padding:10px 14px;font-size:11px;font-family:sans-serif;
+                box-shadow:0 2px 10px rgba(0,0,0,0.18);z-index:9999;min-width:170px;">
+      <div style="font-size:12px;font-weight:700;border-bottom:1px solid #ddd;
+                  padding-bottom:4px;margin-bottom:6px;">&#128202; Resumen</div>
+      <table style="border-collapse:collapse;width:100%">
+        <tr>
+          <td style="padding:2px 6px 2px 0;color:#555">Clientes filtro</td>
+          <td style="text-align:right;font-weight:600">{n_total:,}</td>
+        </tr>
+        <tr>
+          <td style="padding:2px 6px 2px 0;color:#555">En mapa</td>
+          <td style="text-align:right;font-weight:600">{n_en_mapa:,}</td>
+        </tr>
+        <tr>
+          <td style="padding:2px 6px 2px 0;color:#555">Cobertura GPS</td>
+          <td style="text-align:right;font-weight:600">{pct}%</td>
+        </tr>
+        {filas_stats}
+      </table>
+    </div>"""
+
+
+def _add_cuadrantes_overlay(mapa, ciudad_id: int | None) -> None:
+    """Agrega overlay de cuadrantes/rutas GeoJSON si existe el archivo.
+
+    Usa el mismo GeoJSON que mapa_muestras.py. Se agrega como FeatureGroup
+    independiente con LayerControl para que el usuario pueda ocultarlo.
+    """
+    if not ciudad_id or ciudad_id not in _GEOJSON_CUADRANTES:
+        return
+
+    geojson_path = _GEOJSON_CUADRANTES[ciudad_id]
+    if not geojson_path.exists():
+        return
+
+    import folium
+
+    try:
+        with open(geojson_path, encoding="utf-8") as f:
+            geojson_data = json.load(f)
+    except Exception:
+        return
+
+    # Detectar campos tooltip disponibles en el primer feature
+    sample_props: dict = {}
+    for feat in geojson_data.get("features", []):
+        sample_props = feat.get("properties") or {}
+        break
+
+    candidatos = ["codigo", "code", "nombre", "route_id", "ruta", "CODIGO", "NOMBRE"]
+    tooltip_fields = [k for k in candidatos if k in sample_props][:2]
+
+    group = folium.FeatureGroup(name="Cuadrantes / Rutas", show=True)
+
+    geojson_kwargs: dict = dict(
+        data=geojson_data,
+        style_function=lambda _: {
+            "fillColor":   "#3B82F6",
+            "color":       "#1D4ED8",
+            "weight":      1.2,
+            "fillOpacity": 0.04,
+        },
+    )
+    if tooltip_fields:
+        geojson_kwargs["tooltip"] = folium.GeoJsonTooltip(
+            fields=tooltip_fields,
+            aliases=[f.capitalize() for f in tooltip_fields],
+            sticky=False,
+        )
+
+    folium.GeoJson(**geojson_kwargs).add_to(group)
+    group.add_to(mapa)
+
+    # LayerControl para que el usuario pueda activar/desactivar cuadrantes
+    folium.LayerControl(collapsed=True, position="topright").add_to(mapa)
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -114,7 +264,7 @@ def _render_puntos_simple(mapa, df: pd.DataFrame, color: str = "#6D28D9") -> int
             fill=True,
             fill_color=color,
             fill_opacity=0.80,
-            popup=folium.Popup(_popup_text(row), max_width=250),
+            popup=folium.Popup(_popup_text(row), max_width=280),
         ).add_to(mapa)
         n += 1
     return n
@@ -159,10 +309,10 @@ def _render_puntos_cuartiles(
                 padding:10px 16px;font-size:12px;font-family:sans-serif;
                 box-shadow:0 2px 10px rgba(0,0,0,0.18);z-index:9999;line-height:2;">
       <b style="font-size:13px">{label}</b><br>
-      <span style="color:{color_q4};font-size:16px">●</span> Top 25%  ≥ {_fmt(p75)}<br>
-      <span style="color:{color_q3};font-size:16px">●</span> 50–75%   {_fmt(p50)} – {_fmt(p75)}<br>
-      <span style="color:{color_q2};font-size:16px">●</span> 25–50%   {_fmt(p25)} – {_fmt(p50)}<br>
-      <span style="color:{color_q1};font-size:16px">●</span> Bottom 25% &lt; {_fmt(p25)}
+      <span style="color:{color_q4};font-size:16px">&#9679;</span> Top 25%  &ge; {_fmt(p75)}<br>
+      <span style="color:{color_q3};font-size:16px">&#9679;</span> 50&ndash;75%  {_fmt(p50)} &ndash; {_fmt(p75)}<br>
+      <span style="color:{color_q2};font-size:16px">&#9679;</span> 25&ndash;50%  {_fmt(p25)} &ndash; {_fmt(p50)}<br>
+      <span style="color:{color_q1};font-size:16px">&#9679;</span> Bottom 25% &lt; {_fmt(p25)}
     </div>"""
     mapa.get_root().html.add_child(folium.Element(leyenda_html))
 
@@ -190,7 +340,7 @@ def _render_puntos_cuartiles(
             fill=True,
             fill_color=color,
             fill_opacity=0.82,
-            popup=folium.Popup(_popup_text(row), max_width=250),
+            popup=folium.Popup(_popup_text(row), max_width=280),
         ).add_to(mapa)
         n += 1
     return n
@@ -215,7 +365,7 @@ def _render_puntos_bicolor(mapa, df: pd.DataFrame, campo_color: str,
             fill=True,
             fill_color=color,
             fill_opacity=0.80,
-            popup=folium.Popup(_popup_text(row), max_width=250),
+            popup=folium.Popup(_popup_text(row), max_width=280),
         ).add_to(mapa)
         n += 1
     return n
@@ -260,7 +410,7 @@ def _render_circulos_proporcionales(mapa, df: pd.DataFrame, campo_valor: str,
             fill=True,
             fill_color=color,
             fill_opacity=0.70,
-            popup=folium.Popup(_popup_text(row), max_width=250),
+            popup=folium.Popup(_popup_text(row), max_width=280),
         ).add_to(mapa)
         n += 1
     return n
@@ -295,7 +445,7 @@ def _render_clusters(mapa, df: pd.DataFrame) -> int:
             continue
         folium.Marker(
             location=[row["lat"], row["lon"]],
-            popup=folium.Popup(_popup_text(row), max_width=280),
+            popup=folium.Popup(_popup_text(row), max_width=300),
             icon=folium.Icon(color="blue", icon="user", prefix="fa"),
         ).add_to(cluster)
         n += 1
@@ -322,26 +472,35 @@ def pintar_mapa(
     color_circulos: str = "#DC2626",
     colores_cuartil: dict | None = None,
     nombre_archivo: str = "",
+    n_filtro: int | None = None,
 ) -> dict:
     """Genera un mapa HTML a partir de un DataFrame estándar.
 
     El DataFrame DEBE tener columnas: id_contacto, lat, lon.
     Las columnas adicionales se usan para colores/tamaños y popups.
 
+    El mapa incluye automáticamente:
+      - Overlay de cuadrantes/rutas GeoJSON (mismo que mapa_muestras.py)
+      - Tabla resumen con n_clientes, cobertura GPS y promedios numéricos
+      - Popup con id_contacto siempre en primer lugar
+
     Args:
         df:               DataFrame con id_contacto, lat, lon + atributos extra.
         tipo:             Tipo de visualización (ver TIPOS_VALIDOS).
         titulo:           Título mostrado en el nombre del archivo.
-        ciudad_id:        id_centroope para centrar el mapa si no hay coords.
-        campo_valor:      Columna numérica para circulos_proporcionales.
+        ciudad_id:        id_centroope para centrar el mapa y cargar cuadrantes.
+        campo_valor:      Columna numérica para circulos_proporcionales / puntos_cuartiles.
         campo_color:      Columna 0/1 para puntos_bicolor.
         color_verdadero:  Color cuando campo_color == 1 (default: green).
         color_falso:      Color cuando campo_color == 0 (default: red).
         color_circulos:   Color base para círculos proporcionales.
+        colores_cuartil:  Overrides de colores para puntos_cuartiles.
         nombre_archivo:   Prefijo para el nombre del HTML generado.
+        n_filtro:         Total de clientes del filtro SQL (antes del merge con coords).
+                          Usado en la tabla resumen para mostrar % cobertura real.
 
     Returns:
-        Dict con: ok, html_path, filename, n_puntos, n_sin_coords, tipo.
+        Dict con: ok, html_path, filename, n_puntos, n_total, n_sin_coords, tipo.
     """
     import folium  # import local para no fallar si folium no está disponible en tests
 
@@ -364,7 +523,10 @@ def pintar_mapa(
 
     mapa = _base_map(df, ciudad_id)
 
-    # Inyectar título como control HTML
+    # 1. Overlay de cuadrantes/rutas (misma capa que mapa_muestras.py)
+    _add_cuadrantes_overlay(mapa, ciudad_id)
+
+    # 2. Título flotante
     if titulo:
         title_html = f"""
         <div style="position:fixed;top:12px;left:50%;transform:translateX(-50%);
@@ -375,7 +537,7 @@ def pintar_mapa(
         </div>"""
         mapa.get_root().html.add_child(folium.Element(title_html))
 
-    # Renderizar según tipo
+    # 3. Renderizar puntos según tipo
     colores = colores_cuartil or {}
 
     if tipo == "puntos_simple":
@@ -406,12 +568,16 @@ def pintar_mapa(
         n_puntos = _render_heatmap(mapa, df, campo_peso=campo_valor)
 
     elif tipo == "clusters":
-        n_puntos = _render_clusters(mapa)
+        n_puntos = _render_clusters(mapa, df)
 
     else:
         n_puntos = 0
 
-    # Guardar HTML
+    # 4. Tabla resumen (esquina inferior derecha)
+    tabla_html = _tabla_resumen_html(df, n_filtro=n_filtro)
+    mapa.get_root().html.add_child(folium.Element(tabla_html))
+
+    # 5. Guardar HTML
     fname     = _nombre_archivo(nombre_archivo or titulo or tipo)
     html_path = _MAPS_DIR / fname
     mapa.save(str(html_path))

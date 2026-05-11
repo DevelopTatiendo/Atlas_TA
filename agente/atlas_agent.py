@@ -483,25 +483,34 @@ GLOSARIO OPERACIONAL:
 - Cache coordenadas: archivo local con GPS de clientes. Actualizar con actualizar_cache_coordenadas.
 
 ━━━ VALIDACIÓN OBLIGATORIA — ANTES DE CUALQUIER ACCIÓN ━━━
-Antes de llamar a CUALQUIER herramienta, verifica que el mensaje del usuario tenga LAS TRES:
+Antes de llamar a CUALQUIER herramienta, verifica lo siguiente:
 
   ① CIUDAD explícita — Cali, Medellín, Bogotá, Pereira, Manizales, Bucaramanga o Barranquilla.
-  ② ACOTACIÓN TEMPORAL — fecha, mes, año, período, días de mora, edad_deuda, "este mes", "en abril", etc.
-  ③ AL MENOS UN FILTRO — ruta, barrio, monto, categoría, estado, tipo de cliente, deuda, etc.
+     → Si falta la ciudad, pide que la especifiquen. SIEMPRE requerida.
 
-Si falta CUALQUIERA de los tres → NO ejecutes ninguna herramienta.
+  ② ACOTACIÓN — solo requerida cuando el filtro NO es ya acotado por sí mismo.
+     • Con ruta específica (ej: "ruta 3", "ruta Aranjuez"), barrio, categoría de ticket
+       o cualquier filtro que por definición devuelva un subconjunto pequeño → NO pidas período.
+     • Sin esos filtros (ej: "clientes activos de Cali") → SÍ pide período o edad de deuda
+       para evitar consultas de decenas de miles de registros sin acotar.
+
+  ③ AL MENOS UN FILTRO de negocio — ruta, barrio, monto, categoría, estado, ticket, deuda, etc.
+     → Si solo hay ciudad y ningún filtro → pide qué quieren ver.
+
+Si falta ① o ③ → NO ejecutes herramientas.
+Si falta ② y el filtro NO es acotado → NO ejecutes herramientas.
 Responde SOLO con este bloque de ejemplos (sin agregar nada más):
 
 ---
 Para generar un mapa necesito saber:
-**① Ciudad · ② Período o edad de deuda · ③ Qué filtrar**
+**① Ciudad · ② Qué filtrar (y período si no hay ruta/barrio)**
 
 Ejemplos válidos:
 - *"Clientes activos de **Medellín** con pedido válido en **abril 2026**"*
-- *"No-fieles de **Cali** sin visita en **lo que va de 2026**"*
+- *"Clientes de **Cali** de la **ruta 3** categoría ticket bajo"* ← sin período, OK
 - *"Clientes de **Bogotá** con pedido de BluePet en **el primer trimestre 2026**"*
 - *"Clientes con deuda > $50K en **Barranquilla**, mora entre 30 y 180 días"*
-- *"Cobertura de la ruta Aranjuez en **Medellín** desde **enero 2026**"*
+- *"Cobertura de la ruta **Aranjuez** en **Medellín**"* ← sin período, OK
 - *"Clientes con más de 500 puntos acumulados en **Pereira**"*
 ---
 
@@ -553,6 +562,14 @@ RESPUESTAS — FORMATO ESTRICTO:
 - Máximo 1-2 líneas de texto. NADA más.
 - NUNCA escribas tablas, listas de KPIs ni números en tu respuesta. La UI los muestra automáticamente.
 - Solo di: qué mapa se generó y dónde está. Ej: "Mapa listo: 58 clientes Aranjuez con deuda 30-720d."
+
+OFERTA DE SEGMENTACIÓN (obligatoria después de cada mapa exitoso):
+Inmediatamente después de confirmar el mapa, agrega UNA sola línea con opciones de repintado.
+Formato exacto (una línea, sin viñetas):
+  ¿Segmentar por: **[col_num_1]** (cuartiles) · **[col_num_2]** (cuartiles) · o pedir otro filtro?
+- Reemplaza [col_num_X] con los nombres de columnas numéricas disponibles (resultado["columnas_disponibles"]).
+- Si no hay columnas numéricas, omite esta línea.
+- Si el usuario ya pidió cuartiles/segmentación, no repitas la oferta.
 
 OTROS FLUJOS:
 - Ciudad → listar_rutas_ciudad primero.
@@ -679,6 +696,11 @@ def _ejecutar_herramienta(nombre: str, argumentos: dict) -> Any:
         if _pregunta_ctx:
             registrar_buena(_pregunta_ctx, sql, herramienta="consultar_clientes")
 
+        tipo_mapa   = kwargs.get("tipo_mapa_sugerido", "puntos_simple") or "puntos_simple"
+        campo_valor = kwargs.get("campo_valor")
+        campo_color = kwargs.get("campo_color")
+        titulo      = kwargs.get("titulo", "")
+
         resultado = {
             "ok":           True,
             "n_total":      n_total,
@@ -688,15 +710,41 @@ def _ejecutar_herramienta(nombre: str, argumentos: dict) -> Any:
             "kpis":         kpis,
             "tabla_kpis_md": tabla_md,
             "muestra":      muestra,
-            # Parámetros para reusar en generar_mapa_clientes
-            "sql_para_mapa":        sql,
-            "ciudad":               ciudad,
-            "schema_sql":           schema_sql,
-            "tipo_mapa_sugerido":   kwargs.get("tipo_mapa_sugerido", "clusters"),
-            "campo_valor":          kwargs.get("campo_valor"),
-            "campo_color":          kwargs.get("campo_color"),
-            "titulo":               kwargs.get("titulo", ""),
+            # Parámetros para reusar en repintar_mapa
+            "sql_para_mapa":      sql,
+            "ciudad":             ciudad,
+            "schema_sql":         schema_sql,
+            "tipo_mapa_sugerido": tipo_mapa,
+            "campo_valor":        campo_valor,
+            "campo_color":        campo_color,
+            "titulo":             titulo,
+            "columnas_disponibles": [
+                c for c in df_merge.columns if c not in ("lat", "lon")
+            ],
         }
+
+        # ── Generar mapa automáticamente si hay coordenadas ──────────────
+        # No dependemos de que el LLM haga el segundo tool call.
+        if n_con_coords > 0:
+            from agente.map_renderer import pintar_mapa
+            map_res = pintar_mapa(
+                df_merge,
+                tipo=tipo_mapa,
+                titulo=titulo,
+                ciudad_id=ciudad if isinstance(ciudad, int) else None,
+                campo_valor=campo_valor,
+                campo_color=campo_color,
+                nombre_archivo=titulo or tipo_mapa,
+                n_filtro=n_total,
+            )
+            if map_res.get("ok"):
+                _ULTIMO_DF["df"]     = df_merge.copy()
+                _ULTIMO_DF["ciudad"] = ciudad
+                _ULTIMO_DF["sql"]    = sql
+                resultado["html_path"] = map_res["html_path"]
+                resultado["filename"]  = map_res["filename"]
+                resultado["n_puntos"]  = map_res["n_puntos"]
+
         return resultado
 
     def _generar_mapa_clientes(**kwargs):
@@ -782,6 +830,7 @@ def _ejecutar_herramienta(nombre: str, argumentos: dict) -> Any:
             campo_valor=campo_valor,
             campo_color=campo_color,
             nombre_archivo=titulo or tipo_final,
+            n_filtro=n_clientes,          # total del filtro SQL antes del merge con coords
         )
 
         resultado["n_clientes_filtro"] = n_clientes
@@ -1261,21 +1310,17 @@ class AtlasAgent:
 
                     resultado = _ejecutar_herramienta(tc.function.name, args_dict)
 
-                    # Si fue Vanna, imprimir el SQL generado
-                    if tc.function.name == "generar_sql_vanna" and isinstance(resultado, dict):
-                        if resultado.get("ok"):
-                            sep = "─" * 60
-                            print(f"  {sep}")
-                            print(f"  SQL GENERADO POR VANNA:")
-                            print(resultado.get("sql",""), flush=True)
-                            print(f"  {sep}\n", flush=True)
-                        else:
-                            print(f"  [Vanna ERROR] {resultado.get(chr(39)+'error'+chr(39),chr(39)+chr(39))}\n", flush=True)
-
-                    if tc.function.name in ("ejecutar_codigo_mapa", "generar_mapa_clientes", "repintar_mapa")                             and isinstance(resultado, dict) and resultado.get("ok"):
-                        self._ultimo_mapa = resultado.get("html_path")
-                    if tc.function.name == "consultar_clientes"                             and isinstance(resultado, dict) and resultado.get("ok"):
-                        self._ultima_consulta = resultado
+                    # Capturar mapa y consulta para la UI
+                    if isinstance(resultado, dict) and resultado.get("ok"):
+                        if tc.function.name in (
+                            "ejecutar_codigo_mapa", "generar_mapa_clientes",
+                            "repintar_mapa",
+                        ) and resultado.get("html_path"):
+                            self._ultimo_mapa = resultado["html_path"]
+                        elif tc.function.name == "consultar_clientes":
+                            self._ultima_consulta = resultado
+                            if resultado.get("html_path"):  # mapa auto-generado
+                                self._ultimo_mapa = resultado["html_path"]
 
                     self._historial.append({
                         "role":         "tool",
@@ -1283,18 +1328,10 @@ class AtlasAgent:
                         "content":      json.dumps(resultado, ensure_ascii=False, default=str),
                     })
 
-            elif razon == "stop":
-                texto = msg.content or ""
-                self._historial.append({"role": "assistant", "content": texto})
-                return texto
+                # Siguiente iteracion del while
+                continue
 
-            else:
-                return f"[Agente detuvo con finish_reason inesperado: {razon}]"
-
-    def limpiar_historial(self) -> None:
-        """Reinicia el historial de conversacion."""
-        self._historial = []
-
-    def reiniciar(self) -> None:
-        """Alias de limpiar_historial para compatibilidad."""
-        self.limpiar_historial()
+            # Respuesta final del agente
+            texto = msg.content or ""
+            self._historial.append({"role": "assistant", "content": texto})
+            return texto

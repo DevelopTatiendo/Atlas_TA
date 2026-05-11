@@ -69,24 +69,12 @@ def _render_kpi_cards(consulta: dict, expandido: bool = True) -> None:
         st.caption(f"📊 {titulo}")
 
     resumen = [k for k in kpis if k.get("grupo") == "resumen"]
-    resto   = [k for k in kpis if k.get("grupo") != "resumen"]
 
-    # Métricas de resumen: total, coords, %
+    # Solo las 3 métricas básicas: clientes encontrados, con coordenadas GPS, cobertura
     if resumen:
         cols = st.columns(len(resumen))
         for col, k in zip(cols, resumen):
             col.metric(k["nombre"], k["valor_fmt"])
-
-    # KPIs por columna
-    if resto:
-        grupos: dict[str, list] = {}
-        for k in resto:
-            grupos.setdefault(k.get("grupo", ""), []).append(k)
-        for _, items in grupos.items():
-            n = min(len(items), 4)
-            cols = st.columns(n)
-            for i, k in enumerate(items[:n]):
-                cols[i].metric(k["nombre"], k["valor_fmt"])
 
     # Muestra de datos
     if muestra and expandido:
