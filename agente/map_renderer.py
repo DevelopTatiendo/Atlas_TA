@@ -217,24 +217,31 @@ def _add_cuadrantes_overlay(mapa, ciudad_id: int | None) -> None:
         sample_props = feat.get("properties") or {}
         break
 
-    candidatos = ["codigo", "code", "nombre", "route_id", "ruta", "CODIGO", "NOMBRE"]
-    tooltip_fields = [k for k in candidatos if k in sample_props][:2]
+    # Preferir route_name > codigo > code para tooltip
+    candidatos_tooltip = ["route_name", "ruta_publica", "codigo", "code", "route_id"]
+    tooltip_fields = [k for k in candidatos_tooltip if k in sample_props][:2]
+
+    # ── Style function: lee fillColor/color/weight/fillOpacity de las
+    # propiedades del feature — igual que _style_cuadrante en mapa_consultores.py
+    def _style(feat: dict) -> dict:
+        p = feat.get("properties") or {}
+        return {
+            "fillColor":   p.get("fillColor",   "#ffd24d"),
+            "color":       p.get("color",       "#333333"),
+            "weight":      p.get("weight",      1.5),
+            "fillOpacity": p.get("fillOpacity", 0.35),
+        }
 
     group = folium.FeatureGroup(name="Cuadrantes / Rutas", show=True)
 
     geojson_kwargs: dict = dict(
         data=geojson_data,
-        style_function=lambda _: {
-            "fillColor":   "#3B82F6",
-            "color":       "#1D4ED8",
-            "weight":      1.2,
-            "fillOpacity": 0.04,
-        },
+        style_function=_style,
     )
     if tooltip_fields:
         geojson_kwargs["tooltip"] = folium.GeoJsonTooltip(
             fields=tooltip_fields,
-            aliases=[f.capitalize() for f in tooltip_fields],
+            aliases=[f.replace("_", " ").capitalize() for f in tooltip_fields],
             sticky=False,
         )
 
