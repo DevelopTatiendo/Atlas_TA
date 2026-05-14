@@ -156,7 +156,12 @@ if st.session_state.get("last_ciudad") != ciudad:
 st.divider()
 
 # ── Tabs principales ──────────────────────────────────────────────────────────
-tab_mapas, tab_evolucion, tab_agente = st.tabs(["🗺️ Mapa de Muestras", "Evolucion Savitri", "🤖 Atlas Agent"])
+tab_mapas, tab_evolucion, tab_rutas, tab_agente = st.tabs([
+    "🗺️ Mapa de Muestras",
+    "📈 Evolución Savitri",
+    "🚶 Rutas Consultores",
+    "🤖 Atlas Agent",
+])
 
 
 def _fmt_date(x) -> str:
@@ -494,6 +499,111 @@ with tab_evolucion:
             '<div class="muted" style="text-align:center;">'
             'No se ha generado ningun analisis. Ajusta los filtros e intentalo de nuevo.'
             '</div>',
+            unsafe_allow_html=True,
+        )
+
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# TAB 3 -- Rutas Consultores
+# ═══════════════════════════════════════════════════════════════════════════
+with tab_rutas:
+
+    st.markdown(
+        "<p style='color:#6B7280;font-size:13px;margin-bottom:12px'>"
+        "Selecciona el periodo y los consultores para visualizar su recorrido "
+        "diario sobre el mapa. Cada consultor tiene un color y ruta animada.</p>",
+        unsafe_allow_html=True,
+    )
+
+    with st.form("form_rutas_consultores"):
+        col_r1, col_r2 = st.columns(2)
+        with col_r1:
+            rutas_fecha_ini = st.date_input("Fecha inicio", value=datetime.today().date(), key="rutas_fi")
+        with col_r2:
+            rutas_fecha_fin = st.date_input("Fecha fin", value=datetime.today().date(), key="rutas_ff")
+        submit_cargar = st.form_submit_button("Cargar consultores disponibles", use_container_width=True)
+
+    if submit_cargar or st.session_state.get("rutas_consultores_df") is not None:
+        if submit_cargar:
+            with st.spinner("Consultando base de datos..."):
+                try:
+                    from pre_procesamiento.consultor_rutas import listar_consultores
+                    df_cons = listar_consultores(
+                        ciudad=ciudad,
+                        f_ini=str(rutas_fecha_ini),
+                        f_fin=str(rutas_fecha_fin),
+                    )
+                    st.session_state["rutas_consultores_df"] = df_cons
+                    st.session_state["rutas_fi_cache"]       = str(rutas_fecha_ini)
+                    st.session_state["rutas_ff_cache"]       = str(rutas_fecha_fin)
+                except Exception as _e:
+                    logging.exception("Error cargando consultores")
+                    st.error(f"No se pudieron cargar los consultores: {_e}")
+                    df_cons = None
+        else:
+            df_cons = st.session_state.get("rutas_consultores_df")
+
+        if df_cons is not None and not df_cons.empty:
+            opciones = {
+                f"{row['apellido']} {str(row['nombre'])[:1]}. ({int(row['n_eventos'])} ev.)": int(row["id_autor"])
+                for _, row in df_cons.iterrows()
+            }
+            seleccionados_labels = st.multiselect(
+                "Consultores a mostrar",
+                options=list(opciones.keys()),
+                default=list(opciones.keys())[:min(5, len(opciones))],
+                key="rutas_sel",
+                help="Selecciona uno o mas consultores. Recomendado: hasta 8.",
+            )
+            ids_sel = [opciones[lbl] for lbl in seleccionados_labels]
+
+            if st.button("Generar Mapa de Rutas", type="primary", use_container_width=True, key="btn_gen_rutas"):
+                if not ids_sel:
+                    st.warning("Selecciona al menos un consultor.")
+                else:
+                    with st.spinner("Generando mapa interactivo..."):
+                        try:
+                            from mapa_rutas_consultor import generar_mapa_rutas
+                            res = generar_mapa_rutas(
+                                ciudad=ciudad,
+                                f_ini=st.session_state["rutas_fi_cache"],
+                                f_fin=st.session_state["rutas_ff_cache"],
+                                ids_consultor=ids_sel,
+                            )
+                            if res.get("ok"):
+                                ts  = int(time.time())
+                                url = f"{FLASK_SERVER}/static/maps/{res['filename']}?t={ts}"
+                                st.session_state["rutas_last_url"]      = url
+                                st.session_state["rutas_last_filename"] = res["filename"]
+                                st.session_state["rutas_n_cons"]        = res["n_consultores"]
+                                st.session_state["rutas_n_eventos"]     = res["n_eventos"]
+                            else:
+                                st.error(res.get("error", "Error desconocido."))
+                        except Exception as _e:
+                            logging.exception("Error generando mapa rutas")
+                            st.error(f"Error: {_e}")
+        elif df_cons is not None:
+            st.info("No se encontraron consultores con eventos en ese periodo y ciudad.")
+
+    rutas_url = st.session_state.get("rutas_last_url")
+    if rutas_url:
+        nc = st.session_state.get("rutas_n_cons", 0)
+        ne = st.session_state.get("rutas_n_eventos", 0)
+        cr1, cr2, cr3 = st.columns(3)
+        cr1.metric("Consultores", nc)
+        cr2.metric("Eventos trazados", ne)
+        cr3.metric("Ciudad", ciudad)
+        fname_dl = f"Rutas_{ciudad}_{st.session_state.get('rutas_fi_cache','')}_{st.session_state.get('rutas_ff_cache','')}.html"
+        html_dl  = os.path.join("static", "maps", st.session_state.get("rutas_last_filename", ""))
+        if os.path.exists(html_dl):
+            with open(html_dl, "rb") as _fh:
+                st.download_button("Descargar mapa HTML", data=_fh.read(), file_name=fname_dl,
+                                   mime="text/html", type="secondary", use_container_width=True)
+        st.markdown(
+            f'<div style="text-align:center;margin-top:10px">'
+            f'<a href="{rutas_url}" target="_blank" rel="noopener" class="pill">Ver Mapa en Nueva Pestana</a>'
+            f'</div>',
             unsafe_allow_html=True,
         )
 

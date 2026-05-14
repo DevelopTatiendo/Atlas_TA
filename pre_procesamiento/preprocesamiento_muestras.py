@@ -373,12 +373,228 @@ def aplicar_contactabilidad_temporal(
     return df_out
 
 
+
+# ── Expresiones de detección de marca (4 marcas, case-insensitive) ───────────
+# Se usan en consultar_detalle_muestras para linea_muestra, lineas_despues, etc.
+_CASO_ITEM_MUESTRA = """CASE
+    WHEN UPPER(CONCAT_WS(' ', COALESCE(ma_m.marca,''), COALESCE(pr_m.producto,''), COALESCE(i_muestra.item,''))) LIKE '%GIORGIO%'   THEN 'GIORGIO'
+    WHEN UPPER(CONCAT_WS(' ', COALESCE(ma_m.marca,''), COALESCE(pr_m.producto,''), COALESCE(i_muestra.item,''))) LIKE '%FULLIMP%'   THEN 'FULLIMP'
+    WHEN UPPER(CONCAT_WS(' ', COALESCE(ma_m.marca,''), COALESCE(pr_m.producto,''), COALESCE(i_muestra.item,''))) LIKE '%BLUE PET%'
+      OR UPPER(CONCAT_WS(' ', COALESCE(ma_m.marca,''), COALESCE(pr_m.producto,''), COALESCE(i_muestra.item,''))) LIKE '%BLUEPET%'
+      OR UPPER(CONCAT_WS(' ', COALESCE(ma_m.marca,''), COALESCE(pr_m.producto,''), COALESCE(i_muestra.item,''))) LIKE '%BLUE-PET%'  THEN 'BLUE PET'
+    WHEN UPPER(CONCAT_WS(' ', COALESCE(ma_m.marca,''), COALESCE(pr_m.producto,''), COALESCE(i_muestra.item,''))) LIKE '%SAVITRI%'   THEN 'SAVITRI'
+    ELSE 'OTRA LINEA / SIN CLASIFICAR'
+END"""
+
+_CASO_ITEM_COMPRA = """CASE
+    WHEN UPPER(CONCAT_WS(' ', COALESCE(ma.marca,''), COALESCE(pr.producto,''), COALESCE(i_compra.item,''))) LIKE '%GIORGIO%'   THEN 'GIORGIO'
+    WHEN UPPER(CONCAT_WS(' ', COALESCE(ma.marca,''), COALESCE(pr.producto,''), COALESCE(i_compra.item,''))) LIKE '%FULLIMP%'   THEN 'FULLIMP'
+    WHEN UPPER(CONCAT_WS(' ', COALESCE(ma.marca,''), COALESCE(pr.producto,''), COALESCE(i_compra.item,''))) LIKE '%BLUE PET%'
+      OR UPPER(CONCAT_WS(' ', COALESCE(ma.marca,''), COALESCE(pr.producto,''), COALESCE(i_compra.item,''))) LIKE '%BLUEPET%'
+      OR UPPER(CONCAT_WS(' ', COALESCE(ma.marca,''), COALESCE(pr.producto,''), COALESCE(i_compra.item,''))) LIKE '%BLUE-PET%'  THEN 'BLUE PET'
+    WHEN UPPER(CONCAT_WS(' ', COALESCE(ma.marca,''), COALESCE(pr.producto,''), COALESCE(i_compra.item,''))) LIKE '%SAVITRI%'   THEN 'SAVITRI'
+    ELSE 'OTRA LINEA / SIN CLASIFICAR'
+END"""
+
+
+def consultar_detalle_muestras(
+    id_centroope: int,
+    fecha_inicio: str,
+    fecha_fin: str,
+) -> pd.DataFrame:
+    """Consulta detallada de muestras con seguimiento de pedidos posteriores.
+
+    Devuelve una fila por evento (idEvento) con:
+        id_muestra, generado_por, cargo, cliente, tel, cel, barrio,
+        fecha_muestra, muestra, linea_muestra, pedidos_posteriores,
+        primera_compra, marcas_despues, lineas_despues, productos_despues,
+        resultado_marca, resultado_linea.
+
+    Marcas detectadas: GIORGIO · FULLIMP · BLUE PET · SAVITRI.
+    La detección revisa el nombre del ítem Y la marca/producto registrados
+    en fullclean_bodega para máxima robustez ante variaciones de escritura.
+    """
+    query = (
+        "SELECT"
+        "\n    ev.idEvento                                               AS id_muestra,"
+        "\n    CONCAT_WS(' ', per.nombre, per.apellido)                 AS generado_por,"
+        "\n    car.cargo,"
+        "\n    c.nombre                                                  AS cliente,"
+        "\n    c.tel1                                                    AS tel,"
+        "\n    c.celular                                                 AS cel,"
+        "\n    b.barrio,"
+        "\n    DATE(ev.fecha_evento)                                     AS fecha_muestra,"
+        "\n    COALESCE(i_muestra.item, '-')                             AS muestra,"
+        "\n    " + _CASO_ITEM_MUESTRA + "                               AS linea_muestra,"
+        "\n    COUNT(DISTINCT pe.id)                                     AS pedidos_posteriores,"
+        "\n    COALESCE(DATE(MIN(pe.fecha_pedido)), '-')                 AS primera_compra,"
+        "\n    COALESCE(GROUP_CONCAT(DISTINCT ma.marca ORDER BY ma.marca SEPARATOR ' | '), '-') AS marcas_despues,"
+        "\n    COALESCE(GROUP_CONCAT(DISTINCT " + _CASO_ITEM_COMPRA + " ORDER BY " + _CASO_ITEM_COMPRA + " SEPARATOR ' | '), '-') AS lineas_despues,"
+        "\n    COALESCE(GROUP_CONCAT(DISTINCT pr.producto ORDER BY pr.producto SEPARATOR ' | '), '-') AS productos_despues,"
+        "\n    CASE"
+        "\n        WHEN COUNT(DISTINCT pe.id) = 0 THEN 'NO VOLVIO A COMPRAR'"
+        "\n        WHEN (" + _CASO_ITEM_MUESTRA + ") != 'OTRA LINEA / SIN CLASIFICAR'"
+        "\n             AND UPPER(COALESCE(GROUP_CONCAT(DISTINCT ma.marca SEPARATOR ' | '), '')) LIKE CONCAT('%', TRIM(LEADING 'COMPRO ' FROM 'x'), '%')"
+        "\n             THEN CONCAT('COMPRO ', " + _CASO_ITEM_MUESTRA + ")"
+        "\n        ELSE 'COMPRO OTRA MARCA'"
+        "\n    END AS resultado_marca,"
+        "\n    CASE"
+        "\n        WHEN COUNT(DISTINCT pe.id) = 0 THEN 'NO VOLVIO A COMPRAR'"
+        "\n        WHEN (" + _CASO_ITEM_MUESTRA + ") != 'OTRA LINEA / SIN CLASIFICAR'"
+        "\n             AND (" + _CASO_ITEM_MUESTRA + ") IN ("
+        "\n                 SELECT DISTINCT " + _CASO_ITEM_COMPRA + ""
+        "\n                 FROM fullclean_telemercadeo.pedidos_det pd2"
+        "\n                 JOIN fullclean_bodega.items i2 ON i2.id = pd2.id_item"
+        "\n                 JOIN fullclean_bodega.productos pr2 ON pr2.id = i2.id_producto"
+        "\n                 JOIN fullclean_bodega.marcas ma2 ON ma2.id = pr2.id_marca"
+        "\n                 WHERE pd2.id_pedido = pe.id)"
+        "\n             THEN 'COMPRO MISMA LINEA'"
+        "\n        ELSE 'COMPRO OTRA LINEA'"
+        "\n    END AS resultado_linea"
+    )
+    # Esto genera SQL demasiado complejo con subconsultas correlacionadas.
+    # Usamos una version simplificada y directa:
+    query = """
+SELECT
+    ev.idEvento                                                              AS id_muestra,
+    CONCAT_WS(' ', per.nombre, per.apellido)                                AS generado_por,
+    car.cargo,
+    c.nombre                                                                 AS cliente,
+    c.tel1                                                                   AS tel,
+    c.celular                                                                AS cel,
+    b.barrio,
+    DATE(ev.fecha_evento)                                                    AS fecha_muestra,
+    COALESCE(i_muestra.item, '-')                                            AS muestra,
+    CASE
+        WHEN UPPER(CONCAT_WS(' ',COALESCE(ma_m.marca,''),COALESCE(pr_m.producto,''),COALESCE(i_muestra.item,''))) LIKE '%GIORGIO%'  THEN 'GIORGIO'
+        WHEN UPPER(CONCAT_WS(' ',COALESCE(ma_m.marca,''),COALESCE(pr_m.producto,''),COALESCE(i_muestra.item,''))) LIKE '%FULLIMP%'  THEN 'FULLIMP'
+        WHEN UPPER(CONCAT_WS(' ',COALESCE(ma_m.marca,''),COALESCE(pr_m.producto,''),COALESCE(i_muestra.item,''))) LIKE '%BLUE PET%'
+          OR UPPER(CONCAT_WS(' ',COALESCE(ma_m.marca,''),COALESCE(pr_m.producto,''),COALESCE(i_muestra.item,''))) LIKE '%BLUEPET%'
+          OR UPPER(CONCAT_WS(' ',COALESCE(ma_m.marca,''),COALESCE(pr_m.producto,''),COALESCE(i_muestra.item,''))) LIKE '%BLUE-PET%' THEN 'BLUE PET'
+        WHEN UPPER(CONCAT_WS(' ',COALESCE(ma_m.marca,''),COALESCE(pr_m.producto,''),COALESCE(i_muestra.item,''))) LIKE '%SAVITRI%'  THEN 'SAVITRI'
+        ELSE 'OTRA LINEA / SIN CLASIFICAR'
+    END                                                                      AS linea_muestra,
+    COUNT(DISTINCT pe.id)                                                    AS pedidos_posteriores,
+    COALESCE(DATE(MIN(pe.fecha_pedido)), '-')                                AS primera_compra,
+    COALESCE(GROUP_CONCAT(DISTINCT ma.marca    ORDER BY ma.marca    SEPARATOR ' | '), '-') AS marcas_despues,
+    COALESCE(GROUP_CONCAT(DISTINCT
+        CASE
+            WHEN UPPER(CONCAT_WS(' ',COALESCE(ma.marca,''),COALESCE(pr.producto,''),COALESCE(i_compra.item,''))) LIKE '%GIORGIO%'  THEN 'GIORGIO'
+            WHEN UPPER(CONCAT_WS(' ',COALESCE(ma.marca,''),COALESCE(pr.producto,''),COALESCE(i_compra.item,''))) LIKE '%FULLIMP%'  THEN 'FULLIMP'
+            WHEN UPPER(CONCAT_WS(' ',COALESCE(ma.marca,''),COALESCE(pr.producto,''),COALESCE(i_compra.item,''))) LIKE '%BLUE PET%'
+              OR UPPER(CONCAT_WS(' ',COALESCE(ma.marca,''),COALESCE(pr.producto,''),COALESCE(i_compra.item,''))) LIKE '%BLUEPET%'
+              OR UPPER(CONCAT_WS(' ',COALESCE(ma.marca,''),COALESCE(pr.producto,''),COALESCE(i_compra.item,''))) LIKE '%BLUE-PET%' THEN 'BLUE PET'
+            WHEN UPPER(CONCAT_WS(' ',COALESCE(ma.marca,''),COALESCE(pr.producto,''),COALESCE(i_compra.item,''))) LIKE '%SAVITRI%'  THEN 'SAVITRI'
+            ELSE 'OTRA LINEA / SIN CLASIFICAR'
+        END
+    ORDER BY 1 SEPARATOR ' | '), '-')                                        AS lineas_despues,
+    COALESCE(GROUP_CONCAT(DISTINCT pr.producto ORDER BY pr.producto SEPARATOR ' | '), '-') AS productos_despues,
+    CASE
+        WHEN COUNT(DISTINCT pe.id) = 0
+            THEN 'NO VOLVIO A COMPRAR'
+        WHEN UPPER(CONCAT_WS(' ',COALESCE(ma_m.marca,''),COALESCE(pr_m.producto,''),COALESCE(i_muestra.item,''))) LIKE '%GIORGIO%'
+             AND UPPER(COALESCE(GROUP_CONCAT(DISTINCT ma.marca SEPARATOR ' | '),'')) LIKE '%GIORGIO%'
+            THEN 'COMPRO GIORGIO'
+        WHEN UPPER(CONCAT_WS(' ',COALESCE(ma_m.marca,''),COALESCE(pr_m.producto,''),COALESCE(i_muestra.item,''))) LIKE '%FULLIMP%'
+             AND UPPER(COALESCE(GROUP_CONCAT(DISTINCT ma.marca SEPARATOR ' | '),'')) LIKE '%FULLIMP%'
+            THEN 'COMPRO FULLIMP'
+        WHEN (UPPER(CONCAT_WS(' ',COALESCE(ma_m.marca,''),COALESCE(pr_m.producto,''),COALESCE(i_muestra.item,''))) LIKE '%BLUE PET%'
+           OR UPPER(CONCAT_WS(' ',COALESCE(ma_m.marca,''),COALESCE(pr_m.producto,''),COALESCE(i_muestra.item,''))) LIKE '%BLUEPET%')
+             AND (UPPER(COALESCE(GROUP_CONCAT(DISTINCT ma.marca SEPARATOR ' | '),'')) LIKE '%BLUE PET%'
+               OR UPPER(COALESCE(GROUP_CONCAT(DISTINCT ma.marca SEPARATOR ' | '),'')) LIKE '%BLUEPET%')
+            THEN 'COMPRO BLUE PET'
+        WHEN UPPER(CONCAT_WS(' ',COALESCE(ma_m.marca,''),COALESCE(pr_m.producto,''),COALESCE(i_muestra.item,''))) LIKE '%SAVITRI%'
+             AND UPPER(COALESCE(GROUP_CONCAT(DISTINCT ma.marca SEPARATOR ' | '),'')) LIKE '%SAVITRI%'
+            THEN 'COMPRO SAVITRI'
+        ELSE 'COMPRO OTRA MARCA'
+    END                                                                      AS resultado_marca,
+    CASE
+        WHEN COUNT(DISTINCT pe.id) = 0
+            THEN 'NO VOLVIO A COMPRAR'
+        WHEN UPPER(CONCAT_WS(' ',COALESCE(ma_m.marca,''),COALESCE(pr_m.producto,''),COALESCE(i_muestra.item,''))) LIKE '%GIORGIO%'
+             AND UPPER(COALESCE(GROUP_CONCAT(DISTINCT CONCAT_WS(' ',COALESCE(ma.marca,''),COALESCE(pr.producto,''),COALESCE(i_compra.item,'')) SEPARATOR ' | '),'')) LIKE '%GIORGIO%'
+            THEN 'COMPRO MISMA LINEA'
+        WHEN UPPER(CONCAT_WS(' ',COALESCE(ma_m.marca,''),COALESCE(pr_m.producto,''),COALESCE(i_muestra.item,''))) LIKE '%FULLIMP%'
+             AND UPPER(COALESCE(GROUP_CONCAT(DISTINCT CONCAT_WS(' ',COALESCE(ma.marca,''),COALESCE(pr.producto,''),COALESCE(i_compra.item,'')) SEPARATOR ' | '),'')) LIKE '%FULLIMP%'
+            THEN 'COMPRO MISMA LINEA'
+        WHEN (UPPER(CONCAT_WS(' ',COALESCE(ma_m.marca,''),COALESCE(pr_m.producto,''),COALESCE(i_muestra.item,''))) LIKE '%BLUE PET%'
+           OR UPPER(CONCAT_WS(' ',COALESCE(ma_m.marca,''),COALESCE(pr_m.producto,''),COALESCE(i_muestra.item,''))) LIKE '%BLUEPET%')
+             AND (UPPER(COALESCE(GROUP_CONCAT(DISTINCT CONCAT_WS(' ',COALESCE(ma.marca,''),COALESCE(pr.producto,''),COALESCE(i_compra.item,'')) SEPARATOR ' | '),'')) LIKE '%BLUE PET%'
+               OR UPPER(COALESCE(GROUP_CONCAT(DISTINCT CONCAT_WS(' ',COALESCE(ma.marca,''),COALESCE(pr.producto,''),COALESCE(i_compra.item,'')) SEPARATOR ' | '),'')) LIKE '%BLUEPET%')
+            THEN 'COMPRO MISMA LINEA'
+        WHEN UPPER(CONCAT_WS(' ',COALESCE(ma_m.marca,''),COALESCE(pr_m.producto,''),COALESCE(i_muestra.item,''))) LIKE '%SAVITRI%'
+             AND UPPER(COALESCE(GROUP_CONCAT(DISTINCT CONCAT_WS(' ',COALESCE(ma.marca,''),COALESCE(pr.producto,''),COALESCE(i_compra.item,'')) SEPARATOR ' | '),'')) LIKE '%SAVITRI%'
+            THEN 'COMPRO MISMA LINEA'
+        ELSE 'COMPRO OTRA LINEA'
+    END                                                                      AS resultado_linea
+
+FROM fullclean_contactos.vwEventos ev
+LEFT JOIN fullclean_contactos.contactos c
+    ON c.id = ev.id_contacto
+LEFT JOIN fullclean_contactos.ciudades ci
+    ON ci.id = c.id_ciudad
+LEFT JOIN fullclean_contactos.barrios b
+    ON b.Id = c.id_barrio
+LEFT JOIN fullclean_personal.personal per
+    ON per.id = ev.id_autor
+LEFT JOIN fullclean_personal.cargos car
+    ON car.Id_cargo = per.id_cargo
+LEFT JOIN fullclean_telemercadeo.obsequios ob
+    ON ob.id_contacto       = ev.id_contacto
+   AND ob.id_promotor        = ev.id_autor
+   AND DATE(ob.fecha_obsequio) = DATE(ev.fecha_evento)
+LEFT JOIN fullclean_bodega.items i_muestra
+    ON i_muestra.id = ob.id_item
+LEFT JOIN fullclean_bodega.productos pr_m
+    ON pr_m.id = i_muestra.id_producto
+LEFT JOIN fullclean_bodega.marcas ma_m
+    ON ma_m.id = pr_m.id_marca
+LEFT JOIN fullclean_telemercadeo.pedidos pe
+    ON pe.id_contacto           = ev.id_contacto
+   AND pe.fecha_pedido          > ev.fecha_evento
+   AND pe.estado_pedido         = 1
+   AND pe.anulada               = 0
+   AND pe.autorizar             IN (1, 2)
+   AND pe.autorizacion_descuento = 0
+   AND pe.tipo_documento        < 2
+LEFT JOIN fullclean_telemercadeo.pedidos_det pd
+    ON pd.id_pedido = pe.id
+LEFT JOIN fullclean_bodega.items i_compra
+    ON i_compra.id = pd.id_item
+LEFT JOIN fullclean_bodega.productos pr
+    ON pr.id = i_compra.id_producto
+LEFT JOIN fullclean_bodega.marcas ma
+    ON ma.id = pr.id_marca
+
+WHERE ev.id_evento_tipo = 15
+  AND ev.fecha_evento BETWEEN :fecha_inicio AND :fecha_fin
+  AND ci.id_centroope = :id_centroope
+
+GROUP BY
+    ev.idEvento, per.nombre, per.apellido, car.cargo,
+    c.nombre, c.tel1, c.celular, b.barrio,
+    ev.fecha_evento, i_muestra.item,
+    ma_m.marca, pr_m.producto
+
+ORDER BY ev.fecha_evento DESC
+"""
+    params = {
+        "fecha_inicio": f"{fecha_inicio} 00:00:00",
+        "fecha_fin":    f"{fecha_fin} 23:59:59",
+        "id_centroope": id_centroope,
+    }
+    try:
+        df = sql_read(query, params=params, schema="fullclean_contactos")
+        return df if df is not None else pd.DataFrame()
+    except Exception:
+        return pd.DataFrame()
+
+
 __all__ = [
     "consultar_db", "crear_df", "COLUMNAS_ESTANDAR",
-    "listar_promotores", "consultar_llamadas_raw", "aplicar_contactabilidad_temporal",
+    "listar_promotores", "consultar_llamadas_raw",
+    "aplicar_contactabilidad_temporal", "consultar_detalle_muestras",
 ]
 
 # NOTA DE USO: consultar_db ahora recibe ids_promotor como tuple (no list).
-# Ejemplo de llamada correcta:
-#   consultar_db(id_centroope=2, fecha_inicio="2024-01-01", fecha_fin="2024-12-31",
-#                ids_promotor=tuple(ids) if ids else None)
+# consultar_detalle_muestras es independiente y no requiere crear_df.

@@ -214,6 +214,21 @@ resumen_compras AS (
         GROUP_CONCAT(DISTINCT item_comprado ORDER BY item_comprado SEPARATOR ' | ') AS items_comprados_despues
     FROM compras_posteriores
     GROUP BY idEvento, id_contacto
+),
+primer_pedido_prods AS (
+    SELECT
+        cp.idEvento,
+        cp.id_contacto,
+        GROUP_CONCAT(DISTINCT cp.item_comprado ORDER BY cp.item_comprado SEPARATOR ' | ') AS productos_sig_pedido
+    FROM compras_posteriores cp
+    INNER JOIN (
+        SELECT idEvento, id_contacto, MIN(fecha_hora_pedido) AS min_fecha
+        FROM compras_posteriores
+        GROUP BY idEvento, id_contacto
+    ) pmin ON pmin.idEvento = cp.idEvento
+          AND pmin.id_contacto = cp.id_contacto
+          AND cp.fecha_hora_pedido = pmin.min_fecha
+    GROUP BY cp.idEvento, cp.id_contacto
 )
 SELECT
     m.idEvento AS id_muestra,
@@ -243,6 +258,7 @@ SELECT
     rc.marcas_compradas_despues,
     rc.lineas_compradas_despues,
     rc.items_comprados_despues,
+    COALESCE(pp.productos_sig_pedido, '-') AS productos_sig_pedido,
     CASE
         WHEN m.item_muestra IS NULL THEN 'SIN MUESTRA IDENTIFICADA'
         WHEN rc.pedidos_posteriores IS NULL THEN 'NO VOLVIO A COMPRAR'
@@ -261,6 +277,9 @@ FROM muestras m
 LEFT JOIN resumen_compras rc
     ON rc.idEvento = m.idEvento
    AND rc.id_contacto = m.id_contacto
+LEFT JOIN primer_pedido_prods pp
+    ON pp.idEvento = m.idEvento
+   AND pp.id_contacto = m.id_contacto
 LEFT JOIN fullclean_contactos.contactos c
     ON c.id = m.id_contacto
 LEFT JOIN fullclean_contactos.barrios b
@@ -361,8 +380,7 @@ def _popup_cliente(row: pd.Series) -> str:
         ("Primera compra", _fmt_fecha(row.get("primera_compra_posterior"))),
         ("Marcas despues", row.get("marcas_compradas_despues")),
         ("Lineas despues", row.get("lineas_compradas_despues")),
-        ("Resultado marca", row.get("resultado_marca")),
-        ("Resultado linea", row.get("resultado_linea")),
+        ("Productos sig. pedido", row.get("productos_sig_pedido")),
     ]
     filas = "".join(
         f"<tr><td style='padding:3px 8px;color:#555'>{label}</td>"
